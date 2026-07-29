@@ -6,6 +6,7 @@ import type { Caregiver, Task, TaskCompletion, Visit, FoodPack } from "@/lib/typ
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Link from "next/link";
 import CaregiverPicker from "./components/CaregiverPicker";
+import HistorySection from "./components/HistorySection";
 
 interface CompletionWithCaregiver extends TaskCompletion {
   caregivers: Caregiver;
@@ -560,6 +561,9 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* History section */}
+            <HistorySection />
 
             {/* Instructions link */}
             <Link
