@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Caregiver, Task, TaskCompletion, Visit } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Navigation from "./components/Navigation";
@@ -12,6 +12,7 @@ interface CompletionWithCaregiver extends TaskCompletion {
 }
 
 async function loadDashboard() {
+  const supabase = getSupabase();
   const today = todayStart();
 
   const [tasksRes, completionsRes, visitsRes] = await Promise.all([

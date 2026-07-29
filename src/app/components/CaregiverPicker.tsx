@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Caregiver } from "@/lib/types";
 
 interface CaregiverPickerProps {
@@ -10,7 +10,7 @@ interface CaregiverPickerProps {
 }
 
 async function fetchCaregivers(): Promise<Caregiver[]> {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("caregivers")
     .select("*")
     .order("name");

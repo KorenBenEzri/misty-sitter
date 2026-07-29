@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Caregiver, FoodPack } from "@/lib/types";
 import { relativeTime } from "@/lib/timeUtils";
 import Navigation from "../components/Navigation";
@@ -85,6 +85,7 @@ function formatHoursLeft(hours: number): string {
 }
 
 async function loadFoodData() {
+  const supabase = getSupabase();
   const { data: activePacks } = await supabase
     .from("food_packs")
     .select("*")
@@ -159,6 +160,7 @@ export default function FoodPage() {
     setDefrosting(true);
 
     try {
+      const supabase = getSupabase();
       // Mark current pack as replaced
       if (currentPack) {
         const { error: updateError } = await supabase
