@@ -38,19 +38,25 @@ export default function CaregiverPicker({
     };
   }, []);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount — validate against fetched caregivers
   useEffect(() => {
     if (!loaded || selected) return;
     const saved = localStorage.getItem("misty-caregiver");
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Caregiver;
-        onSelect(parsed);
+        const match = caregivers.find((c) => c.id === parsed.id);
+        if (match) {
+          onSelect(match);
+        } else {
+          // Caregiver no longer exists in DB — clear stale data
+          localStorage.removeItem("misty-caregiver");
+        }
       } catch {
-        // ignore invalid data
+        localStorage.removeItem("misty-caregiver");
       }
     }
-  }, [loaded, onSelect, selected]);
+  }, [loaded, caregivers, onSelect, selected]);
 
   const handleSelect = (caregiver: Caregiver) => {
     onSelect(caregiver);

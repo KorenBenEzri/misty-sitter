@@ -69,11 +69,20 @@ export default function Home() {
   const handleCheckIn = async () => {
     if (!caregiver || checkingIn) return;
     setCheckingIn(true);
-    await supabase.from("visits").insert({ caregiver_id: caregiver.id });
-    setJustCheckedIn(true);
-    setTimeout(() => setJustCheckedIn(false), 2000);
-    setCheckingIn(false);
-    refresh();
+    try {
+      const { error } = await supabase
+        .from("visits")
+        .insert({ caregiver_id: caregiver.id });
+      if (error) throw error;
+      setJustCheckedIn(true);
+      setTimeout(() => setJustCheckedIn(false), 2000);
+      refresh();
+    } catch (err) {
+      console.error("Failed to check in:", err);
+      alert("Check-in failed. Please try again.");
+    } finally {
+      setCheckingIn(false);
+    }
   };
 
   const handleToggleTask = async (taskId: string) => {
@@ -83,16 +92,27 @@ export default function Home() {
       (c) => c.task_id === taskId && c.caregiver_id === caregiver.id
     );
 
-    if (existing) {
-      await supabase.from("task_completions").delete().eq("id", existing.id);
-    } else {
-      await supabase
-        .from("task_completions")
-        .insert({ task_id: taskId, caregiver_id: caregiver.id });
-      setCelebratingTask(taskId);
-      setTimeout(() => setCelebratingTask(null), 600);
+    try {
+      if (existing) {
+        const { error } = await supabase
+          .from("task_completions")
+          .delete()
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("task_completions")
+          .insert({ task_id: taskId, caregiver_id: caregiver.id });
+        if (error) throw error;
+        setCelebratingTask(taskId);
+        setTimeout(() => setCelebratingTask(null), 600);
+      }
+      refresh();
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+      alert("Something went wrong updating the task. Please try again.");
+      refresh();
     }
-    refresh();
   };
 
   const isCompletedByMe = (taskId: string) =>

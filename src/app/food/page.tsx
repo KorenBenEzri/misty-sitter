@@ -24,10 +24,7 @@ function getFoodStatus(pack: FoodPack): {
   hoursLeft: number;
 } {
   const now = new Date();
-  const defrosted = new Date(pack.defrosted_at);
   const expires = new Date(pack.expires_at);
-  const hoursElapsed =
-    (now.getTime() - defrosted.getTime()) / (1000 * 60 * 60);
   const hoursLeft = (expires.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   if (hoursLeft <= 0 || pack.status === "expired") {
@@ -42,7 +39,7 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft: 0,
     };
   }
-  if (hoursElapsed > 48) {
+  if (hoursLeft <= 24) {
     return {
       status: "old",
       label: "Getting Old",
@@ -54,7 +51,7 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft,
     };
   }
-  if (hoursElapsed > 24) {
+  if (hoursLeft <= 48) {
     return {
       status: "ok",
       label: "OK",
@@ -161,28 +158,38 @@ export default function FoodPage() {
     if (!caregiver || defrosting) return;
     setDefrosting(true);
 
-    // Mark current pack as replaced
-    if (currentPack) {
-      await supabase
+    try {
+      // Mark current pack as replaced
+      if (currentPack) {
+        const { error: updateError } = await supabase
+          .from("food_packs")
+          .update({
+            status: "replaced",
+            replaced_by: caregiver.id,
+            replaced_at: new Date().toISOString(),
+          })
+          .eq("id", currentPack.id);
+        if (updateError) throw updateError;
+      }
+
+      // Create new pack
+      const { error: insertError } = await supabase
         .from("food_packs")
-        .update({
-          status: "replaced",
-          replaced_by: caregiver.id,
-          replaced_at: new Date().toISOString(),
-        })
-        .eq("id", currentPack.id);
+        .insert({
+          placed_by: caregiver.id,
+          label: "Natural Food Pack",
+        });
+      if (insertError) throw insertError;
+
+      setJustDefrosted(true);
+      setTimeout(() => setJustDefrosted(false), 2000);
+      refresh();
+    } catch (err) {
+      console.error("Failed to defrost new pack:", err);
+      alert("Something went wrong logging the new pack. Please try again.");
+    } finally {
+      setDefrosting(false);
     }
-
-    // Create new pack
-    await supabase.from("food_packs").insert({
-      placed_by: caregiver.id,
-      label: "Natural Food Pack",
-    });
-
-    setJustDefrosted(true);
-    setTimeout(() => setJustDefrosted(false), 2000);
-    setDefrosting(false);
-    refresh();
   };
 
   const status = currentPack ? getFoodStatus(currentPack) : null;

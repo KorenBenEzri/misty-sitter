@@ -72,8 +72,7 @@ alter table public.visits enable row level security;
 create policy "Public read caregivers" on public.caregivers for select using (true);
 create policy "Public insert caregivers" on public.caregivers for insert with check (true);
 
-create policy "Public read tasks" on public.tasks for select using (true);
-create policy "Public manage tasks" on public.tasks for all using (true);
+create policy "Public manage tasks" on public.tasks for all using (true) with check (true);
 
 create policy "Public read task_completions" on public.task_completions for select using (true);
 create policy "Public insert task_completions" on public.task_completions for insert with check (true);
@@ -83,8 +82,7 @@ create policy "Public read food_packs" on public.food_packs for select using (tr
 create policy "Public insert food_packs" on public.food_packs for insert with check (true);
 create policy "Public update food_packs" on public.food_packs for update using (true);
 
-create policy "Public read instructions" on public.instructions for select using (true);
-create policy "Public manage instructions" on public.instructions for all using (true);
+create policy "Public manage instructions" on public.instructions for all using (true) with check (true);
 
 create policy "Public read visits" on public.visits for select using (true);
 create policy "Public insert visits" on public.visits for insert with check (true);
