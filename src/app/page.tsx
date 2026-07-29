@@ -1,14 +1,96 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { Caregiver, Task, TaskCompletion, Visit } from "@/lib/types";
+import type { Caregiver, Task, TaskCompletion, Visit, FoodPack } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Navigation from "./components/Navigation";
 import CaregiverPicker from "./components/CaregiverPicker";
 
 interface CompletionWithCaregiver extends TaskCompletion {
   caregivers: Caregiver;
+}
+
+interface FoodPackWithCaregiver extends FoodPack {
+  placed_by_caregiver: Caregiver | null;
+}
+
+type FreshStatus = "fresh" | "ok" | "old" | "expired";
+
+function getFoodStatus(pack: FoodPack): {
+  status: FreshStatus;
+  label: string;
+  emoji: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  message: string;
+  hoursLeft: number;
+} {
+  const now = new Date();
+  const placed = new Date(pack.defrosted_at);
+  const elapsed = (now.getTime() - placed.getTime()) / (1000 * 60 * 60);
+  const expires = new Date(pack.expires_at);
+  const hoursLeft = (expires.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  if (hoursLeft <= 0 || pack.status === "expired") {
+    return {
+      status: "expired",
+      label: "פג תוקף!",
+      emoji: "🔴",
+      color: "text-red-600",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-200",
+      message: "אל תשתמשו! החליפו מיד!",
+      hoursLeft: 0,
+    };
+  }
+  // > 3 days elapsed (72h) → Getting old
+  if (elapsed >= 48) {
+    return {
+      status: "old",
+      label: "מתיישן",
+      emoji: "🟠",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      borderColor: "border-orange-200",
+      message: "הכינו חבילה חדשה!",
+      hoursLeft,
+    };
+  }
+  // > 1 day elapsed (24h) → OK
+  if (elapsed >= 24) {
+    return {
+      status: "ok",
+      label: "בסדר",
+      emoji: "🟡",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-50",
+      borderColor: "border-yellow-200",
+      message: "עדיין טוב, שימו עין",
+      hoursLeft,
+    };
+  }
+  // < 1 day → Fresh
+  return {
+    status: "fresh",
+    label: "טרי",
+    emoji: "🟢",
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    message: "טרי ומוכן!",
+    hoursLeft,
+  };
+}
+
+function formatHoursLeft(hours: number): string {
+  if (hours <= 0) return "פג תוקף";
+  if (hours < 1) return `נשארו ${Math.round(hours * 60)} דקות`;
+  if (hours < 24) return `נשארו ${Math.round(hours)} שעות`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = Math.round(hours % 24);
+  return `נשארו ${days} ימים ${remainingHours} שע׳`;
 }
 
 async function loadDashboard() {
@@ -33,10 +115,37 @@ async function loadDashboard() {
       .order("checked_in_at", { ascending: false }),
   ]);
 
+  // Load current food pack
+  const { data: activePacks } = await supabase
+    .from("food_packs")
+    .select("*")
+    .in("status", ["defrosting", "ready"])
+    .order("defrosted_at", { ascending: false })
+    .limit(1);
+
+  let currentPack: FoodPackWithCaregiver | null = null;
+  if (activePacks && activePacks.length > 0) {
+    const pack = activePacks[0];
+    let placedByCaregiver: Caregiver | null = null;
+    if (pack.placed_by) {
+      const { data } = await supabase
+        .from("caregivers")
+        .select("*")
+        .eq("id", pack.placed_by)
+        .single();
+      placedByCaregiver = data;
+    }
+    currentPack = {
+      ...pack,
+      placed_by_caregiver: placedByCaregiver,
+    } as FoodPackWithCaregiver;
+  }
+
   return {
     tasks: (tasksRes.data ?? []) as Task[],
     completions: (completionsRes.data ?? []) as CompletionWithCaregiver[],
     visits: (visitsRes.data ?? []) as (Visit & { caregivers: Caregiver })[],
+    currentPack,
   };
 }
 
@@ -47,9 +156,11 @@ export default function Home() {
   const [todayVisits, setTodayVisits] = useState<
     (Visit & { caregivers: Caregiver })[]
   >([]);
+  const [currentPack, setCurrentPack] =
+    useState<FoodPackWithCaregiver | null>(null);
   const [celebratingTask, setCelebratingTask] = useState<string | null>(null);
-  const [checkingIn, setCheckingIn] = useState(false);
-  const [justCheckedIn, setJustCheckedIn] = useState(false);
+  const [defrosting, setDefrosting] = useState(false);
+  const [justDefrosted, setJustDefrosted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -62,6 +173,7 @@ export default function Home() {
         setTasks(data.tasks);
         setCompletions(data.completions);
         setTodayVisits(data.visits);
+        setCurrentPack(data.currentPack);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -74,30 +186,37 @@ export default function Home() {
     };
   }, [refreshKey]);
 
+  // Refresh food status every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey((k) => k + 1);
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const refresh = () => {
     setLoading(true);
     setError(false);
     setRefreshKey((k) => k + 1);
   };
 
-  const handleCheckIn = async () => {
-    if (!caregiver || checkingIn) return;
-    setCheckingIn(true);
-    try {
-      const { error } = await getSupabase()
-        .from("visits")
-        .insert({ caregiver_id: caregiver.id });
-      if (error) throw error;
-      setJustCheckedIn(true);
-      setTimeout(() => setJustCheckedIn(false), 2000);
-      refresh();
-    } catch (err) {
-      console.error("Failed to check in:", err);
-      alert("הצ׳ק-אין נכשל. נסו שוב.");
-    } finally {
-      setCheckingIn(false);
-    }
-  };
+  // Auto check-in: insert a visit if caregiver hasn't checked in today
+  const ensureCheckedIn = useCallback(
+    async (cg: Caregiver) => {
+      const alreadyVisited = todayVisits.some(
+        (v) => v.caregiver_id === cg.id
+      );
+      if (alreadyVisited) return;
+      try {
+        await getSupabase()
+          .from("visits")
+          .insert({ caregiver_id: cg.id });
+      } catch {
+        // Silent — visit logging is best-effort
+      }
+    },
+    [todayVisits]
+  );
 
   const handleToggleTask = async (taskId: string) => {
     if (!caregiver) return;
@@ -114,6 +233,9 @@ export default function Home() {
           .eq("id", existing.id);
         if (error) throw error;
       } else {
+        // Auto check-in on first task completion
+        await ensureCheckedIn(caregiver);
+
         const { error } = await getSupabase()
           .from("task_completions")
           .insert({ task_id: taskId, caregiver_id: caregiver.id });
@@ -126,6 +248,47 @@ export default function Home() {
       console.error("Failed to toggle task:", err);
       alert("משהו השתבש בעדכון המשימה. נסו שוב.");
       refresh();
+    }
+  };
+
+  const handleDefrost = async () => {
+    if (!caregiver || defrosting) return;
+    setDefrosting(true);
+
+    try {
+      // Auto check-in
+      await ensureCheckedIn(caregiver);
+
+      // Mark current pack as replaced
+      if (currentPack) {
+        const { error: updateError } = await getSupabase()
+          .from("food_packs")
+          .update({
+            status: "replaced",
+            replaced_by: caregiver.id,
+            replaced_at: new Date().toISOString(),
+          })
+          .eq("id", currentPack.id);
+        if (updateError) throw updateError;
+      }
+
+      // Create new pack
+      const { error: insertError } = await getSupabase()
+        .from("food_packs")
+        .insert({
+          placed_by: caregiver.id,
+          label: "חבילת אוכל טבעי",
+        });
+      if (insertError) throw insertError;
+
+      setJustDefrosted(true);
+      setTimeout(() => setJustDefrosted(false), 2000);
+      refresh();
+    } catch (err) {
+      console.error("Failed to defrost new pack:", err);
+      alert("משהו השתבש ברישום החבילה החדשה. נסו שוב.");
+    } finally {
+      setDefrosting(false);
     }
   };
 
@@ -144,6 +307,8 @@ export default function Home() {
   const totalTasks = tasks.length;
   const progressPercent =
     totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+  const foodStatus = currentPack ? getFoodStatus(currentPack) : null;
 
   return (
     <div className="min-h-full paw-bg pb-nav">
@@ -178,25 +343,6 @@ export default function Home() {
 
         {!loading && !error && (
           <>
-            {/* Check-in section */}
-            {caregiver && (
-              <div className="fade-in">
-                <button
-                  onClick={handleCheckIn}
-                  disabled={checkingIn}
-                  className={`w-full py-4 rounded-2xl font-semibold text-base transition-all duration-300 card-shadow ${
-                    justCheckedIn
-                      ? "bg-green-100 text-green-700 scale-[0.98]"
-                      : "bg-gradient-to-l from-pink-400 to-pink-500 text-white hover:from-pink-500 hover:to-pink-600 active:scale-[0.98]"
-                  }`}
-                >
-                  {justCheckedIn
-                    ? "✅ נרשם בהצלחה!"
-                    : `🐾 צ׳ק אין בתור ${caregiver.name}`}
-                </button>
-              </div>
-            )}
-
             {/* Progress */}
             {totalTasks > 0 && (
               <div className="bg-white rounded-2xl p-4 card-shadow fade-in">
@@ -219,16 +365,6 @@ export default function Home() {
                     🎉 כל המשימות הושלמו! מיסטי שמחה! 🐱
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* No caregiver selected */}
-            {!caregiver && (
-              <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
-                <p className="text-4xl mb-3">🐱</p>
-                <p className="text-gray-500 text-sm">
-                  בחרו את השם שלכם למעלה כדי להתחיל!
-                </p>
               </div>
             )}
 
@@ -317,6 +453,84 @@ export default function Home() {
                 })}
               </div>
             )}
+
+            {/* Food Pack Status */}
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-gray-500 px-1">
+                🍖 מצב חבילת אוכל
+              </h2>
+
+              {currentPack && foodStatus ? (
+                <div
+                  className={`rounded-2xl p-4 card-shadow border-2 ${foodStatus.bgColor} ${foodStatus.borderColor} fade-in`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-3xl ${foodStatus.status === "expired" || foodStatus.status === "old" ? "pulse-soft" : ""}`}
+                    >
+                      {foodStatus.emoji}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${foodStatus.color}`}>
+                          {foodStatus.label}
+                        </span>
+                        <span className={`text-xs ${foodStatus.color} opacity-75`}>
+                          {foodStatus.hoursLeft > 0
+                            ? formatHoursLeft(foodStatus.hoursLeft)
+                            : "פג תוקף!"}
+                        </span>
+                      </div>
+                      <p className={`text-xs mt-0.5 ${foodStatus.color} opacity-75`}>
+                        {foodStatus.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  {foodStatus.status !== "expired" && (
+                    <div className="mt-3">
+                      <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            foodStatus.status === "fresh"
+                              ? "bg-green-400"
+                              : foodStatus.status === "ok"
+                                ? "bg-yellow-400"
+                                : "bg-orange-400"
+                          }`}
+                          style={{
+                            width: `${Math.max(0, Math.min(100, (foodStatus.hoursLeft / 84) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-4 card-shadow text-center fade-in">
+                  <p className="text-2xl mb-1">🧊</p>
+                  <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
+                </div>
+              )}
+
+              {/* Defrost button */}
+              {caregiver && (
+                <button
+                  onClick={handleDefrost}
+                  disabled={defrosting}
+                  className={`w-full py-3 rounded-2xl font-semibold text-sm transition-all duration-300 card-shadow ${
+                    justDefrosted
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gradient-to-l from-pink-400 to-pink-500 text-white hover:from-pink-500 hover:to-pink-600 active:scale-[0.98]"
+                  }`}
+                >
+                  {justDefrosted
+                    ? "✅ חבילה חדשה נרשמה!"
+                    : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
+                </button>
+              )}
+            </div>
 
             {/* Today's visits summary */}
             {todayVisits.length > 0 && (

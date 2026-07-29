@@ -163,7 +163,7 @@ button:focus-visible, a:focus-visible, [role="checkbox"]:focus-visible, [role="o
 
 /* Bottom nav safe area */
 .pb-nav {
-  padding-bottom: 5.5rem;
+  padding-bottom: 6rem;
 }
 
 /* Custom scrollbar */

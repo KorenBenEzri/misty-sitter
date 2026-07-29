@@ -33,7 +33,7 @@ create table public.food_packs (
   id uuid primary key default gen_random_uuid(),
   label text not null default 'Natural Food Pack',
   defrosted_at timestamptz not null default now(),
-  expires_at timestamptz not null default (now() + interval '3 days'),
+  expires_at timestamptz not null default (now() + interval '3 days 12 hours'),
   placed_by uuid references public.caregivers(id),
   replaced_by uuid references public.caregivers(id),
   replaced_at timestamptz,
@@ -90,18 +90,13 @@ create policy "Public insert visits" on public.visits for insert with check (tru
 -- Seed default tasks
 insert into public.tasks (name, description, icon, sort_order) values
   ('האכלת מיסטי (אוכל רטוב)', 'מנה אחת של אוכל רטוב בקערה', '🍖', 1),
-  ('האכלת מיסטי (אוכל יבש)', 'למלא את קערת האוכל היבש אם צריך', '🥣', 2),
   ('מים טריים', 'להחליף מים בכל הקערות', '💧', 3),
   ('ניקוי ארגז חול', 'לנקות את ארגז החול', '🧹', 4),
   ('זמן משחק', 'לפחות 10 דקות של משחק', '🎾', 5),
   ('בדיקת חבילת אוכל', 'לבדוק מצב הפשרה של האוכל הטבעי', '🧊', 6),
-  ('חיבוקים ובדיקה', 'לוודא שהיא נראית שמחה ובריאה', '💕', 7);
+  ('חיבוקים ובדיקה', 'לוודא שהיא נראית שמחה ובריאה', '💕', 7),
+  ('ניקוי מזרקה', 'לנקות את מזרקת המים - פעם בשבועיים', '⛲', 8);
 
--- Seed default caregivers (placeholder names - user will update)
+-- Seed default caregivers
 insert into public.caregivers (name, emoji) values
-  ('Koren', '👨‍💻'),
-  ('Guest 1', '🌟'),
-  ('Guest 2', '✨'),
-  ('Guest 3', '🌸'),
-  ('Guest 4', '🦋'),
-  ('Guest 5', '🌻');
+  ('Koren', '👨‍💻');
