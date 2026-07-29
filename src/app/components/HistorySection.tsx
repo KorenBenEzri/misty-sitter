@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { formatTime } from "@/lib/timeUtils";
 import type { Caregiver } from "@/lib/types";
 
 /* ---------- Types ---------- */
@@ -57,13 +58,6 @@ function formatHebrewDate(dateStr: string): string {
 function dateKey(dateStr: string): string {
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function formatTimeShort(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("he-IL", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 /* ---------- Data fetching ---------- */
@@ -213,14 +207,11 @@ export default function HistorySection() {
   }, []);
 
   const handleToggle = useCallback(() => {
-    setShowHistory((prev) => {
-      const next = !prev;
-      if (next && daysLoaded === 0) {
-        fetchHistory(DAYS_PER_PAGE);
-      }
-      return next;
-    });
-  }, [daysLoaded, fetchHistory]);
+    setShowHistory((prev) => !prev);
+    if (!showHistory && daysLoaded === 0) {
+      fetchHistory(DAYS_PER_PAGE);
+    }
+  }, [showHistory, daysLoaded, fetchHistory]);
 
   const handleShowMore = useCallback(() => {
     fetchHistory(daysLoaded + DAYS_PER_PAGE);
@@ -286,7 +277,7 @@ export default function HistorySection() {
                     <span className="font-medium">{v.caregivers.name}</span>
                     <span className="text-gray-300">·</span>
                     <span className="text-gray-400">
-                      📍 ביקור {formatTimeShort(v.checked_in_at)}
+                      📍 ביקור {formatTime(v.checked_in_at)}
                     </span>
                   </div>
                 ))}
@@ -302,7 +293,7 @@ export default function HistorySection() {
                     <span className="text-gray-300">·</span>
                     <span className="text-gray-400">
                       {c.tasks.icon} {c.tasks.name}{" "}
-                      {formatTimeShort(c.completed_at)}
+                      {formatTime(c.completed_at)}
                     </span>
                   </div>
                 ))}
