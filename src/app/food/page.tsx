@@ -85,7 +85,6 @@ function formatHoursLeft(hours: number): string {
 }
 
 async function loadFoodData() {
-  const supabase = getSupabase();
   const { data: activePacks } = await getSupabase()
     .from("food_packs")
     .select("*")
@@ -160,7 +159,6 @@ export default function FoodPage() {
     setDefrosting(true);
 
     try {
-      const supabase = getSupabase();
       // Mark current pack as replaced
       if (currentPack) {
         const { error: updateError } = await getSupabase()
