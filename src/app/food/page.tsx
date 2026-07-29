@@ -86,7 +86,7 @@ function formatHoursLeft(hours: number): string {
 
 async function loadFoodData() {
   const supabase = getSupabase();
-  const { data: activePacks } = await supabase
+  const { data: activePacks } = await getSupabase()
     .from("food_packs")
     .select("*")
     .in("status", ["defrosting", "ready"])
@@ -98,7 +98,7 @@ async function loadFoodData() {
     const pack = activePacks[0];
     let placedByCaregiver: Caregiver | null = null;
     if (pack.placed_by) {
-      const { data } = await supabase
+      const { data } = await getSupabase()
         .from("caregivers")
         .select("*")
         .eq("id", pack.placed_by)
@@ -111,7 +111,7 @@ async function loadFoodData() {
     } as FoodPackWithCaregiver;
   }
 
-  const { data: past } = await supabase
+  const { data: past } = await getSupabase()
     .from("food_packs")
     .select("*")
     .in("status", ["replaced", "expired"])
@@ -163,7 +163,7 @@ export default function FoodPage() {
       const supabase = getSupabase();
       // Mark current pack as replaced
       if (currentPack) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabase()
           .from("food_packs")
           .update({
             status: "replaced",
@@ -175,7 +175,7 @@ export default function FoodPage() {
       }
 
       // Create new pack
-      const { error: insertError } = await supabase
+      const { error: insertError } = await getSupabase()
         .from("food_packs")
         .insert({
           placed_by: caregiver.id,

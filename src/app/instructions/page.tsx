@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { Instruction } from "@/lib/types";
 import Navigation from "../components/Navigation";
 
@@ -22,7 +22,7 @@ function isVideoUrl(url: string): boolean {
 }
 
 async function loadInstructions(): Promise<Instruction[]> {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("instructions")
     .select("*")
     .order("sort_order");

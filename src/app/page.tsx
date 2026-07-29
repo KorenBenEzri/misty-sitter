@@ -71,7 +71,7 @@ export default function Home() {
     if (!caregiver || checkingIn) return;
     setCheckingIn(true);
     try {
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from("visits")
         .insert({ caregiver_id: caregiver.id });
       if (error) throw error;
@@ -95,13 +95,13 @@ export default function Home() {
 
     try {
       if (existing) {
-        const { error } = await supabase
+        const { error } = await getSupabase()
           .from("task_completions")
           .delete()
           .eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await getSupabase()
           .from("task_completions")
           .insert({ task_id: taskId, caregiver_id: caregiver.id });
         if (error) throw error;
