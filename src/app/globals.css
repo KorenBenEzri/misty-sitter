@@ -161,11 +161,6 @@ button:focus-visible, a:focus-visible, [role="checkbox"]:focus-visible, [role="o
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
-/* Bottom nav safe area */
-.pb-nav {
-  padding-bottom: 6rem;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

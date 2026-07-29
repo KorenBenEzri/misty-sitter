@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Caregiver, Task, TaskCompletion, Visit, FoodPack } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
-import Navigation from "./components/Navigation";
+import Link from "next/link";
 import CaregiverPicker from "./components/CaregiverPicker";
 
 interface CompletionWithCaregiver extends TaskCompletion {
@@ -316,7 +316,7 @@ export default function Home() {
   const foodStatus = currentPack ? getFoodStatus(currentPack) : null;
 
   return (
-    <div className="min-h-full paw-bg pb-nav">
+    <div className="min-h-full paw-bg">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-pink-100">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -560,11 +560,22 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* Instructions link */}
+            <Link
+              href="/instructions"
+              className="block bg-pink-50/80 hover:bg-pink-100/80 rounded-2xl p-4 card-shadow fade-in transition-colors duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">
+                  📋 הוראות טיפול במיסטי
+                </span>
+                <span className="text-gray-400 text-sm">‹</span>
+              </div>
+            </Link>
           </>
         )}
       </main>
-
-      <Navigation />
     </div>
   );
 }

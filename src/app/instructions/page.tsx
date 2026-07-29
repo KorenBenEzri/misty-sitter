@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
+import Link from "next/link";
 import type { Instruction } from "@/lib/types";
-import Navigation from "../components/Navigation";
 
 function getYouTubeEmbedUrl(url: string): string | null {
   const patterns = [
@@ -52,10 +52,16 @@ export default function InstructionsPage() {
   }, []);
 
   return (
-    <div className="min-h-full paw-bg pb-nav">
+    <div className="min-h-full paw-bg">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-pink-100">
         <div className="max-w-lg mx-auto px-4 py-3">
+          <Link
+            href="/"
+            className="text-xs text-pink-400 hover:text-pink-600 transition-colors"
+          >
+            ← חזרה
+          </Link>
           <h1 className="text-lg font-bold text-gray-800">📋 הוראות טיפול</h1>
           <p className="text-xs text-gray-400">איך לטפל במיסטי</p>
         </div>
@@ -143,8 +149,6 @@ export default function InstructionsPage() {
           </>
         )}
       </main>
-
-      <Navigation />
     </div>
   );
 }
