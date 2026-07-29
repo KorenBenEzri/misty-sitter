@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Caregiver, Task, TaskCompletion, Visit, FoodPack } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
@@ -28,8 +28,6 @@ function getFoodStatus(pack: FoodPack): {
   hoursLeft: number;
 } {
   const now = new Date();
-  const placed = new Date(pack.defrosted_at);
-  const elapsed = (now.getTime() - placed.getTime()) / (1000 * 60 * 60);
   const expires = new Date(pack.expires_at);
   const hoursLeft = (expires.getTime() - now.getTime()) / (1000 * 60 * 60);
 
@@ -45,8 +43,8 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft: 0,
     };
   }
-  // > 3 days elapsed (72h) → Getting old
-  if (elapsed >= 48) {
+  // Less than 36h left → Getting old
+  if (hoursLeft < 36) {
     return {
       status: "old",
       label: "מתיישן",
@@ -58,8 +56,8 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft,
     };
   }
-  // > 1 day elapsed (24h) → OK
-  if (elapsed >= 24) {
+  // Less than 60h left → OK
+  if (hoursLeft < 60) {
     return {
       status: "ok",
       label: "בסדר",
@@ -71,7 +69,7 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft,
     };
   }
-  // < 1 day → Fresh
+  // 60+ hours left → Fresh
   return {
     status: "fresh",
     label: "טרי",
@@ -200,23 +198,30 @@ export default function Home() {
     setRefreshKey((k) => k + 1);
   };
 
+  // Track which caregivers we've already checked in (or are checking in)
+  // to avoid duplicate inserts from rapid concurrent actions.
+  const checkedInRef = useRef<Set<string>>(new Set());
+
+  // Reset tracked check-ins when todayVisits refreshes from server
+  useEffect(() => {
+    const visited = new Set(todayVisits.map((v) => v.caregiver_id));
+    checkedInRef.current = visited;
+  }, [todayVisits]);
+
   // Auto check-in: insert a visit if caregiver hasn't checked in today
-  const ensureCheckedIn = useCallback(
-    async (cg: Caregiver) => {
-      const alreadyVisited = todayVisits.some(
-        (v) => v.caregiver_id === cg.id
-      );
-      if (alreadyVisited) return;
-      try {
-        await getSupabase()
-          .from("visits")
-          .insert({ caregiver_id: cg.id });
-      } catch {
-        // Silent — visit logging is best-effort
-      }
-    },
-    [todayVisits]
-  );
+  const ensureCheckedIn = useCallback(async (cg: Caregiver) => {
+    if (checkedInRef.current.has(cg.id)) return;
+    // Mark immediately to prevent concurrent duplicates
+    checkedInRef.current.add(cg.id);
+    try {
+      await getSupabase()
+        .from("visits")
+        .insert({ caregiver_id: cg.id });
+    } catch {
+      // Roll back on failure so it can be retried
+      checkedInRef.current.delete(cg.id);
+    }
+  }, []);
 
   const handleToggleTask = async (taskId: string) => {
     if (!caregiver) return;

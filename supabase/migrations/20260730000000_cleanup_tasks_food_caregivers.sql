@@ -1,4 +1,6 @@
--- Remove dry food task
+-- Remove dry food task (delete completions first for FK safety, then the task)
+DELETE FROM public.task_completions
+  WHERE task_id IN (SELECT id FROM public.tasks WHERE name = 'האכלת מיסטי (אוכל יבש)');
 DELETE FROM public.tasks WHERE name = 'האכלת מיסטי (אוכל יבש)';
 
 -- Add fountain cleaning task (bi-weekly)

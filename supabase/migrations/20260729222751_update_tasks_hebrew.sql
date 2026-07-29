@@ -1,0 +1,1 @@
+-- No-op: Hebrew task updates are applied in 20260729222920_update_tasks_hebrew.sql instead.

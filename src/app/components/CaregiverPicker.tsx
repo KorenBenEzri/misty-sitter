@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Caregiver } from "@/lib/types";
 
@@ -31,6 +31,12 @@ export default function CaregiverPicker({
   const [newEmoji, setNewEmoji] = useState(PRESET_EMOJIS[0]);
   const [adding, setAdding] = useState(false);
 
+  // Keep a stable ref to onSelect so the mount effect doesn't need it as a dependency
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
   const reloadCaregivers = useCallback(async () => {
     const data = await fetchCaregivers();
     setCaregivers(data);
@@ -51,7 +57,7 @@ export default function CaregiverPicker({
           const parsed = JSON.parse(saved) as Caregiver;
           const match = data.find((c) => c.id === parsed.id);
           if (match) {
-            onSelect(match);
+            onSelectRef.current(match);
           } else {
             localStorage.removeItem("misty-caregiver");
             setShowModal(true);
@@ -68,7 +74,6 @@ export default function CaregiverPicker({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSelect = (caregiver: Caregiver) => {
