@@ -68,6 +68,10 @@ export default function CaregiverPicker({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => e.key === "Escape" && setIsOpen(false)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="בחירת מטפל/ת"
         className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-2xl border border-pink-200 card-shadow hover:card-shadow-hover transition-all duration-200 min-w-[140px]"
       >
         {selected ? (
@@ -80,17 +84,22 @@ export default function CaregiverPicker({
         ) : (
           <>
             <span className="text-xl">🐱</span>
-            <span className="text-sm text-gray-400">בחרי מי את/ה</span>
+            <span className="text-sm text-gray-400">מי מבקר/ת?</span>
           </>
         )}
         <span className="text-xs text-gray-300 me-auto">▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 start-0 end-0 bg-white rounded-2xl border border-pink-100 card-shadow overflow-hidden z-50 pop-in min-w-[200px]">
+        <div
+          role="listbox"
+          className="absolute top-full mt-2 start-0 end-0 bg-white rounded-2xl border border-pink-100 card-shadow overflow-hidden z-50 pop-in min-w-[200px]"
+        >
           {caregivers.map((c) => (
             <button
               key={c.id}
+              role="option"
+              aria-selected={selected?.id === c.id}
               onClick={() => handleSelect(c)}
               className={`flex items-center gap-3 w-full px-4 py-3 text-start hover:bg-pink-50 transition-colors ${
                 selected?.id === c.id ? "bg-pink-50" : ""

@@ -14,11 +14,27 @@ export function relativeTime(dateStr: string): string {
   if (minutes < 1) {
     return "עכשיו";
   } else if (minutes < 60) {
-    label = `${minutes} דק׳`;
+    if (minutes === 1) {
+      label = "דקה";
+    } else {
+      label = `${minutes} דק׳`;
+    }
   } else if (hours < 24) {
-    label = `${hours} שע׳`;
+    if (hours === 1) {
+      label = "שעה";
+    } else if (hours === 2) {
+      label = "שעתיים";
+    } else {
+      label = `${hours} שע׳`;
+    }
   } else if (days < 7) {
-    label = `${days} ימים`;
+    if (days === 1) {
+      label = "יום";
+    } else if (days === 2) {
+      label = "יומיים";
+    } else {
+      label = `${days} ימים`;
+    }
   } else {
     label = date.toLocaleDateString("he-IL");
     return isFuture ? `ב-${label}` : label;

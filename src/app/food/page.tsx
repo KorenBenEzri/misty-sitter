@@ -133,14 +133,24 @@ export default function FoodPage() {
   const [defrosting, setDefrosting] = useState(false);
   const [justDefrosted, setJustDefrosted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    loadFoodData().then((data) => {
-      if (cancelled) return;
-      setCurrentPack(data.currentPack);
-      setPastPacks(data.pastPacks);
-    });
+    loadFoodData()
+      .then((data) => {
+        if (cancelled) return;
+        setCurrentPack(data.currentPack);
+        setPastPacks(data.pastPacks);
+        setError(false);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -210,128 +220,147 @@ export default function FoodPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Current Pack Status */}
-        {currentPack && status ? (
-          <div
-            className={`rounded-2xl p-6 card-shadow border-2 ${status.bgColor} ${status.borderColor} fade-in`}
-          >
-            {/* Big visual indicator */}
-            <div className="text-center mb-4">
+        {/* Loading state */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <span className="text-4xl animate-bounce">🐱</span>
+            <p className="text-gray-400 mt-2">טוען...</p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && (
+          <div className="text-center py-10 text-red-400">
+            😿 שגיאה בטעינה. נסו לרענן.
+          </div>
+        )}
+
+        {!loading && !error && (
+          <>
+            {/* Current Pack Status */}
+            {currentPack && status ? (
               <div
-                className={`text-6xl mb-2 ${status.status === "expired" || status.status === "old" ? "pulse-soft" : ""}`}
+                className={`rounded-2xl p-6 card-shadow border-2 ${status.bgColor} ${status.borderColor} fade-in`}
               >
-                {status.emoji}
-              </div>
-              <h2 className={`text-2xl font-bold ${status.color}`}>
-                {status.label}
-              </h2>
-              <p className={`text-sm mt-1 ${status.color} opacity-75`}>
-                {status.message}
-              </p>
-            </div>
-
-            {/* Time info */}
-            <div className="bg-white/60 rounded-xl p-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">הוציאו מהמקפיא</span>
-                <span className="font-medium text-gray-700">
-                  {relativeTime(currentPack.defrosted_at)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">תוקף</span>
-                <span className={`font-medium ${status.color}`}>
-                  {status.hoursLeft > 0
-                    ? formatHoursLeft(status.hoursLeft)
-                    : "פג תוקף!"}
-                </span>
-              </div>
-              {currentPack.placed_by_caregiver && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">הוצא ע״י</span>
-                  <span className="font-medium text-gray-700">
-                    {currentPack.placed_by_caregiver.emoji}{" "}
-                    {currentPack.placed_by_caregiver.name}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Expiry warning bar */}
-            {status.status !== "expired" && (
-              <div className="mt-4">
-                <div className="w-full bg-white/60 rounded-full h-2.5 overflow-hidden">
+                {/* Big visual indicator */}
+                <div className="text-center mb-4">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      status.status === "fresh"
-                        ? "bg-green-400"
-                        : status.status === "ok"
-                          ? "bg-yellow-400"
-                          : "bg-orange-400"
-                    }`}
-                    style={{
-                      width: `${Math.max(0, Math.min(100, (status.hoursLeft / 72) * 100))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
-            <p className="text-4xl mb-3">🧊</p>
-            <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
-            <p className="text-gray-400 text-xs mt-1">
-              הוציאו חבילה חדשה מהמקפיא למטה!
-            </p>
-          </div>
-        )}
-
-        {/* Defrost Button */}
-        {caregiver && (
-          <button
-            onClick={handleDefrost}
-            disabled={defrosting}
-            className={`w-full py-4 rounded-2xl font-semibold text-base transition-all duration-300 card-shadow ${
-              justDefrosted
-                ? "bg-green-100 text-green-700"
-                : "bg-gradient-to-r from-blue-400 to-cyan-400 text-white hover:from-blue-500 hover:to-cyan-500 active:scale-[0.98]"
-            }`}
-          >
-            {justDefrosted
-              ? "✅ חבילה חדשה נרשמה!"
-              : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
-          </button>
-        )}
-
-        {/* Past Packs History */}
-        {pastPacks.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">
-              📦 היסטוריה
-            </h2>
-            {pastPacks.map((pack) => (
-              <div
-                key={pack.id}
-                className="bg-white rounded-2xl p-4 card-shadow opacity-70"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">
-                      {pack.status === "expired" ? "🔴" : "📦"}
-                    </span>
-                    <span className="text-sm text-gray-500">{pack.label}</span>
+                    className={`text-6xl mb-2 ${status.status === "expired" || status.status === "old" ? "pulse-soft" : ""}`}
+                  >
+                    {status.emoji}
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {relativeTime(pack.defrosted_at)}
-                  </span>
+                  <h2 className={`text-2xl font-bold ${status.color}`}>
+                    {status.label}
+                  </h2>
+                  <p className={`text-sm mt-1 ${status.color} opacity-75`}>
+                    {status.message}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  {pack.status === "expired" ? "פג תוקף" : "הוחלף"}
+
+                {/* Time info */}
+                <div className="bg-white/60 rounded-xl p-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">הוציאו מהמקפיא</span>
+                    <span className="font-medium text-gray-700">
+                      {relativeTime(currentPack.defrosted_at)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">תוקף</span>
+                    <span className={`font-medium ${status.color}`}>
+                      {status.hoursLeft > 0
+                        ? formatHoursLeft(status.hoursLeft)
+                        : "פג תוקף!"}
+                    </span>
+                  </div>
+                  {currentPack.placed_by_caregiver && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">הוצא ע״י</span>
+                      <span className="font-medium text-gray-700">
+                        {currentPack.placed_by_caregiver.emoji}{" "}
+                        {currentPack.placed_by_caregiver.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Expiry warning bar */}
+                {status.status !== "expired" && (
+                  <div className="mt-4">
+                    <div className="w-full bg-white/60 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          status.status === "fresh"
+                            ? "bg-green-400"
+                            : status.status === "ok"
+                              ? "bg-yellow-400"
+                              : "bg-orange-400"
+                        }`}
+                        style={{
+                          width: `${Math.max(0, Math.min(100, (status.hoursLeft / 72) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
+                <p className="text-4xl mb-3">🧊</p>
+                <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  הוציאו חבילה חדשה מהמקפיא למטה!
                 </p>
               </div>
-            ))}
-          </div>
+            )}
+
+            {/* Defrost Button */}
+            {caregiver && (
+              <button
+                onClick={handleDefrost}
+                disabled={defrosting}
+                className={`w-full py-4 rounded-2xl font-semibold text-base transition-all duration-300 card-shadow ${
+                  justDefrosted
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gradient-to-l from-pink-400 to-pink-500 text-white hover:from-pink-500 hover:to-pink-600 active:scale-[0.98]"
+                }`}
+              >
+                {justDefrosted
+                  ? "✅ חבילה חדשה נרשמה!"
+                  : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
+              </button>
+            )}
+
+            {/* Past Packs History */}
+            {pastPacks.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-semibold text-gray-500 px-1">
+                  📦 היסטוריה
+                </h2>
+                {pastPacks.map((pack) => (
+                  <div
+                    key={pack.id}
+                    className="bg-white rounded-2xl p-4 card-shadow opacity-70"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">
+                          {pack.status === "expired" ? "🔴" : "📦"}
+                        </span>
+                        <span className="text-sm text-gray-500">{pack.label}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {relativeTime(pack.defrosted_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {pack.status === "expired" ? "פג תוקף" : "הוחלף"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 
