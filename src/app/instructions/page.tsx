@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Instruction } from "@/lib/types";
 import Navigation from "../components/Navigation";
@@ -33,22 +33,22 @@ export default function InstructionsPage() {
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
+    let cancelled = false;
     loadInstructions()
       .then((data) => {
-        setInstructions(data);
-        setError(false);
+        if (!cancelled) setInstructions(data);
       })
       .catch(() => {
-        setError(true);
+        if (!cancelled) setError(true);
       })
       .finally(() => {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

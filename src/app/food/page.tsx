@@ -143,7 +143,6 @@ export default function FoodPage() {
         if (cancelled) return;
         setCurrentPack(data.currentPack);
         setPastPacks(data.pastPacks);
-        setError(false);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -158,11 +157,19 @@ export default function FoodPage() {
 
   // Refresh every minute to update timers
   useEffect(() => {
-    const interval = setInterval(() => setRefreshKey((k) => k + 1), 60_000);
+    const interval = setInterval(() => {
+      setLoading(true);
+      setError(false);
+      setRefreshKey((k) => k + 1);
+    }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const refresh = () => {
+    setLoading(true);
+    setError(false);
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleDefrost = async () => {
     if (!caregiver || defrosting) return;

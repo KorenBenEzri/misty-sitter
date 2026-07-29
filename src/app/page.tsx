@@ -62,7 +62,6 @@ export default function Home() {
         setTasks(data.tasks);
         setCompletions(data.completions);
         setTodayVisits(data.visits);
-        setError(false);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -75,7 +74,11 @@ export default function Home() {
     };
   }, [refreshKey]);
 
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const refresh = () => {
+    setLoading(true);
+    setError(false);
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleCheckIn = async () => {
     if (!caregiver || checkingIn) return;
