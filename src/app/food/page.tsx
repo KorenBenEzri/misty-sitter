@@ -30,58 +30,58 @@ function getFoodStatus(pack: FoodPack): {
   if (hoursLeft <= 0 || pack.status === "expired") {
     return {
       status: "expired",
-      label: "EXPIRED",
+      label: "פג תוקף!",
       emoji: "🔴",
       color: "text-red-600",
       bgColor: "bg-red-50",
       borderColor: "border-red-200",
-      message: "DO NOT USE — Replace immediately!",
+      message: "אל תשתמשו! החליפו מיד!",
       hoursLeft: 0,
     };
   }
   if (hoursLeft <= 24) {
     return {
       status: "old",
-      label: "Getting Old",
+      label: "מתיישן",
       emoji: "🟠",
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       borderColor: "border-orange-200",
-      message: "Prep a new pack!",
+      message: "הכינו חבילה חדשה!",
       hoursLeft,
     };
   }
   if (hoursLeft <= 48) {
     return {
       status: "ok",
-      label: "OK",
+      label: "בסדר",
       emoji: "🟡",
       color: "text-yellow-600",
       bgColor: "bg-yellow-50",
       borderColor: "border-yellow-200",
-      message: "Still good, keep an eye on it",
+      message: "עדיין טוב, שימו עין",
       hoursLeft,
     };
   }
   return {
     status: "fresh",
-    label: "Fresh",
+    label: "טרי",
     emoji: "🟢",
     color: "text-green-600",
     bgColor: "bg-green-50",
     borderColor: "border-green-200",
-    message: "Nice and fresh!",
+    message: "טרי ומוכן!",
     hoursLeft,
   };
 }
 
 function formatHoursLeft(hours: number): string {
-  if (hours <= 0) return "Expired";
-  if (hours < 1) return `${Math.round(hours * 60)}m left`;
-  if (hours < 24) return `${Math.round(hours)}h left`;
+  if (hours <= 0) return "פג תוקף";
+  if (hours < 1) return `נשארו ${Math.round(hours * 60)} דקות`;
+  if (hours < 24) return `נשארו ${Math.round(hours)} שעות`;
   const days = Math.floor(hours / 24);
   const remainingHours = Math.round(hours % 24);
-  return `${days}d ${remainingHours}h left`;
+  return `נשארו ${days} ימים ${remainingHours} שע׳`;
 }
 
 async function loadFoodData() {
@@ -179,7 +179,7 @@ export default function FoodPage() {
         .from("food_packs")
         .insert({
           placed_by: caregiver.id,
-          label: "Natural Food Pack",
+          label: "חבילת אוכל טבעי",
         });
       if (insertError) throw insertError;
 
@@ -188,7 +188,7 @@ export default function FoodPage() {
       refresh();
     } catch (err) {
       console.error("Failed to defrost new pack:", err);
-      alert("Something went wrong logging the new pack. Please try again.");
+      alert("משהו השתבש ברישום החבילה החדשה. נסו שוב.");
     } finally {
       setDefrosting(false);
     }
@@ -203,9 +203,9 @@ export default function FoodPage() {
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-800">
-              🍖 Food Tracker
+              🍖 מעקב אוכל
             </h1>
-            <p className="text-xs text-gray-400">Natural food pack status</p>
+            <p className="text-xs text-gray-400">מצב חבילת האוכל הטבעי</p>
           </div>
           <CaregiverPicker onSelect={setCaregiver} selected={caregiver} />
         </div>
@@ -235,22 +235,22 @@ export default function FoodPage() {
             {/* Time info */}
             <div className="bg-white/60 rounded-xl p-3 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Defrosted</span>
+                <span className="text-gray-500">הוציאו מהמקפיא</span>
                 <span className="font-medium text-gray-700">
                   {relativeTime(currentPack.defrosted_at)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Expires</span>
+                <span className="text-gray-500">תוקף</span>
                 <span className={`font-medium ${status.color}`}>
                   {status.hoursLeft > 0
                     ? formatHoursLeft(status.hoursLeft)
-                    : "Expired!"}
+                    : "פג תוקף!"}
                 </span>
               </div>
               {currentPack.placed_by_caregiver && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Placed by</span>
+                  <span className="text-gray-500">הוצא ע״י</span>
                   <span className="font-medium text-gray-700">
                     {currentPack.placed_by_caregiver.emoji}{" "}
                     {currentPack.placed_by_caregiver.name}
@@ -282,9 +282,9 @@ export default function FoodPage() {
         ) : (
           <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
             <p className="text-4xl mb-3">🧊</p>
-            <p className="text-gray-500 text-sm">No active food pack</p>
+            <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
             <p className="text-gray-400 text-xs mt-1">
-              Defrost a new one below!
+              הוציאו חבילה חדשה מהמקפיא למטה!
             </p>
           </div>
         )}
@@ -301,8 +301,8 @@ export default function FoodPage() {
             }`}
           >
             {justDefrosted
-              ? "✅ New pack logged!"
-              : "🧊 I defrosted a new pack"}
+              ? "✅ חבילה חדשה נרשמה!"
+              : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
           </button>
         )}
 
@@ -310,7 +310,7 @@ export default function FoodPage() {
         {pastPacks.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">
-              📦 Past Packs
+              📦 היסטוריה
             </h2>
             {pastPacks.map((pack) => (
               <div
@@ -328,8 +328,8 @@ export default function FoodPage() {
                     {relativeTime(pack.defrosted_at)}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400 mt-1 capitalize">
-                  {pack.status}
+                <p className="text-xs text-gray-400 mt-1">
+                  {pack.status === "expired" ? "פג תוקף" : "הוחלף"}
                 </p>
               </div>
             ))}

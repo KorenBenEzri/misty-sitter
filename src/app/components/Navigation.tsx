@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/", label: "Home", icon: "🏠" },
-  { href: "/food", label: "Food", icon: "🍖" },
-  { href: "/instructions", label: "Info", icon: "📋" },
+  { href: "/", label: "בית", icon: "🏠" },
+  { href: "/food", label: "אוכל", icon: "🍖" },
+  { href: "/instructions", label: "הוראות", icon: "📋" },
 ];
 
 export default function Navigation() {

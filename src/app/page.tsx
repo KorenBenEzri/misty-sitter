@@ -80,7 +80,7 @@ export default function Home() {
       refresh();
     } catch (err) {
       console.error("Failed to check in:", err);
-      alert("Check-in failed. Please try again.");
+      alert("הצ׳ק-אין נכשל. נסו שוב.");
     } finally {
       setCheckingIn(false);
     }
@@ -111,7 +111,7 @@ export default function Home() {
       refresh();
     } catch (err) {
       console.error("Failed to toggle task:", err);
-      alert("Something went wrong updating the task. Please try again.");
+      alert("משהו השתבש בעדכון המשימה. נסו שוב.");
       refresh();
     }
   };
@@ -139,9 +139,9 @@ export default function Home() {
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-800">
-              🐱 Misty&apos;s Sitter
+              🐱 השומרים של מיסטי
             </h1>
-            <p className="text-xs text-gray-400">Cat Care Tracker</p>
+            <p className="text-xs text-gray-400">מעקב טיפול בחתולה</p>
           </div>
           <CaregiverPicker onSelect={setCaregiver} selected={caregiver} />
         </div>
@@ -161,8 +161,8 @@ export default function Home() {
               }`}
             >
               {justCheckedIn
-                ? "✅ Checked in!"
-                : `🐾 Check In as ${caregiver.name}`}
+                ? "✅ נרשם בהצלחה!"
+                : `🐾 צ׳ק אין בתור ${caregiver.name}`}
             </button>
           </div>
         )}
@@ -172,7 +172,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl p-4 card-shadow fade-in">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-600">
-                Today&apos;s Progress
+                ההתקדמות של היום
               </span>
               <span className="text-sm font-bold text-pink-500">
                 {completedCount}/{totalTasks}
@@ -186,7 +186,7 @@ export default function Home() {
             </div>
             {completedCount === totalTasks && totalTasks > 0 && (
               <p className="text-center text-sm mt-2 text-pink-500 font-medium">
-                🎉 All tasks done! Misty is happy! 🐱
+                🎉 כל המשימות הושלמו! מיסטי שמחה! 🐱
               </p>
             )}
           </div>
@@ -197,7 +197,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
             <p className="text-4xl mb-3">🐱</p>
             <p className="text-gray-500 text-sm">
-              Pick your name above to get started!
+              בחרו את השם שלכם למעלה כדי להתחיל!
             </p>
           </div>
         )}
@@ -206,7 +206,7 @@ export default function Home() {
         {tasks.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">
-              🐾 Today&apos;s Checklist
+              🐾 המשימות של היום
             </h2>
             {tasks.map((task) => {
               const doneByMe = isCompletedByMe(task.id);
@@ -219,7 +219,7 @@ export default function Home() {
                   key={task.id}
                   className={`relative bg-white rounded-2xl p-4 card-shadow transition-all duration-200 ${
                     isCelebrating ? "celebrate" : ""
-                  } ${doneByAnyone ? "border-l-4 border-green-300" : ""}`}
+                  } ${doneByAnyone ? "border-e-4 border-green-300" : ""}`}
                 >
                   <div className="flex items-start gap-3">
                     <button
@@ -248,21 +248,23 @@ export default function Home() {
                         </span>
                       </div>
                       {task.description && (
-                        <p className="text-xs text-gray-400 mt-0.5 ml-6">
+                        <p className="text-xs text-gray-400 mt-0.5 ms-6">
                           {task.description}
                         </p>
                       )}
 
                       {/* Show who completed */}
                       {taskCompletions.length > 0 && (
-                        <div className="mt-2 ml-6 space-y-1">
+                        <div className="mt-2 ms-6 space-y-1">
                           {taskCompletions.map((tc) => (
                             <p
                               key={tc.id}
                               className="text-xs text-gray-400 flex items-center gap-1"
                             >
                               <span>{tc.caregivers.emoji}</span>
-                              <span>{tc.caregivers.name}</span>
+                              <span>
+                                הושלם ע״י {tc.caregivers.name}
+                              </span>
                               <span className="text-gray-300">·</span>
                               <span>{formatTime(tc.completed_at)}</span>
                             </p>
@@ -272,7 +274,7 @@ export default function Home() {
                     </div>
 
                     {isCelebrating && (
-                      <span className="absolute -top-2 -right-2 text-lg sparkle">
+                      <span className="absolute -top-2 -start-2 text-lg sparkle">
                         ✨
                       </span>
                     )}
@@ -287,7 +289,7 @@ export default function Home() {
         {todayVisits.length > 0 && (
           <div className="bg-lavender-50 rounded-2xl p-4 card-shadow fade-in">
             <h3 className="text-sm font-semibold text-lavender-300 mb-3 flex items-center gap-1">
-              <span>📍</span> Today&apos;s Visits
+              <span>📍</span> הביקורים של היום
             </h3>
             <div className="space-y-2">
               {todayVisits.map((v) => (

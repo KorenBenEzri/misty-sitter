@@ -135,7 +135,7 @@ body {
   content: "✨";
   position: absolute;
   top: -8px;
-  right: -8px;
+  inset-inline-start: -8px;
   animation: sparkle 0.6s ease-in-out;
 }
 

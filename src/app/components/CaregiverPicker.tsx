@@ -80,19 +80,19 @@ export default function CaregiverPicker({
         ) : (
           <>
             <span className="text-xl">🐱</span>
-            <span className="text-sm text-gray-400">Who are you?</span>
+            <span className="text-sm text-gray-400">בחרי מי את/ה</span>
           </>
         )}
-        <span className="text-xs text-gray-300 ml-auto">▼</span>
+        <span className="text-xs text-gray-300 me-auto">▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-2xl border border-pink-100 card-shadow overflow-hidden z-50 pop-in min-w-[200px]">
+        <div className="absolute top-full mt-2 start-0 end-0 bg-white rounded-2xl border border-pink-100 card-shadow overflow-hidden z-50 pop-in min-w-[200px]">
           {caregivers.map((c) => (
             <button
               key={c.id}
               onClick={() => handleSelect(c)}
-              className={`flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-pink-50 transition-colors ${
+              className={`flex items-center gap-3 w-full px-4 py-3 text-start hover:bg-pink-50 transition-colors ${
                 selected?.id === c.id ? "bg-pink-50" : ""
               }`}
             >
@@ -101,7 +101,7 @@ export default function CaregiverPicker({
                 {c.name}
               </span>
               {selected?.id === c.id && (
-                <span className="ml-auto text-pink-400">✓</span>
+                <span className="me-auto text-pink-400">✓</span>
               )}
             </button>
           ))}

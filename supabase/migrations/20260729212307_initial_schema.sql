@@ -89,13 +89,13 @@ create policy "Public insert visits" on public.visits for insert with check (tru
 
 -- Seed default tasks
 insert into public.tasks (name, description, icon, sort_order) values
-  ('Feed Misty (wet food)', 'One portion of wet food in her bowl', '🍖', 1),
-  ('Feed Misty (dry food)', 'Top up dry food bowl if low', '🥣', 2),
-  ('Fresh water', 'Change water in all bowls', '💧', 3),
-  ('Clean litter box', 'Scoop and clean the litter box', '🧹', 4),
-  ('Playtime', 'At least 10 minutes of play', '🎾', 5),
-  ('Check food pack', 'Check defrost status of natural food', '🧊', 6),
-  ('Cuddles & check-up', 'Make sure she seems happy and healthy', '💕', 7);
+  ('האכלת מיסטי (אוכל רטוב)', 'מנה אחת של אוכל רטוב בקערה', '🍖', 1),
+  ('האכלת מיסטי (אוכל יבש)', 'למלא את קערת האוכל היבש אם צריך', '🥣', 2),
+  ('מים טריים', 'להחליף מים בכל הקערות', '💧', 3),
+  ('ניקוי ארגז חול', 'לנקות את ארגז החול', '🧹', 4),
+  ('זמן משחק', 'לפחות 10 דקות של משחק', '🎾', 5),
+  ('בדיקת חבילת אוכל', 'לבדוק מצב הפשרה של האוכל הטבעי', '🧊', 6),
+  ('חיבוקים ובדיקה', 'לוודא שהיא נראית שמחה ובריאה', '💕', 7);
 
 -- Seed default caregivers (placeholder names - user will update)
 insert into public.caregivers (name, emoji) values

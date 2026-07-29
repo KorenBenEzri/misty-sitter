@@ -44,8 +44,8 @@ export default function InstructionsPage() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-pink-100">
         <div className="max-w-lg mx-auto px-4 py-3">
-          <h1 className="text-lg font-bold text-gray-800">📋 Instructions</h1>
-          <p className="text-xs text-gray-400">How to take care of Misty</p>
+          <h1 className="text-lg font-bold text-gray-800">📋 הוראות טיפול</h1>
+          <p className="text-xs text-gray-400">איך לטפל במיסטי</p>
         </div>
       </header>
 
@@ -53,9 +53,9 @@ export default function InstructionsPage() {
         {instructions.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 card-shadow text-center fade-in">
             <p className="text-4xl mb-3">📋</p>
-            <p className="text-gray-500 text-sm">No instructions yet</p>
+            <p className="text-gray-500 text-sm">אין הוראות עדיין</p>
             <p className="text-gray-400 text-xs mt-1">
-              Instructions will appear here once added to the database.
+              הוראות יופיעו כאן ברגע שיתווספו למסד הנתונים.
             </p>
           </div>
         ) : (
@@ -81,7 +81,7 @@ export default function InstructionsPage() {
                   ) : isVideoUrl(instruction.video_url) ? (
                     <video controls className="w-full" preload="metadata">
                       <source src={instruction.video_url} />
-                      Your browser does not support video playback.
+                      הדפדפן שלך לא תומך בהפעלת וידאו.
                     </video>
                   ) : (
                     <a
@@ -90,7 +90,7 @@ export default function InstructionsPage() {
                       rel="noopener noreferrer"
                       className="block p-3 bg-lavender-50 text-center text-sm text-lavender-300 hover:text-pink-500 transition-colors"
                     >
-                      🎬 Watch Video →
+                      🎬 צפה בסרטון ←
                     </a>
                   )}
                 </div>

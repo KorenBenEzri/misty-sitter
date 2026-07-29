@@ -1,4 +1,4 @@
-/** Returns a human-readable relative time string like "2 hours ago" or "1 day left". */
+/** Returns a human-readable relative time string in Hebrew. */
 export function relativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -12,20 +12,19 @@ export function relativeTime(dateStr: string): string {
 
   let label: string;
   if (minutes < 1) {
-    label = "just now";
-    return label;
+    return "עכשיו";
   } else if (minutes < 60) {
-    label = `${minutes}m`;
+    label = `${minutes} דק׳`;
   } else if (hours < 24) {
-    label = `${hours}h`;
+    label = `${hours} שע׳`;
   } else if (days < 7) {
-    label = `${days}d`;
+    label = `${days} ימים`;
   } else {
-    label = date.toLocaleDateString();
-    return isFuture ? `on ${label}` : label;
+    label = date.toLocaleDateString("he-IL");
+    return isFuture ? `ב-${label}` : label;
   }
 
-  return isFuture ? `${label} left` : `${label} ago`;
+  return isFuture ? `עוד ${label}` : `לפני ${label}`;
 }
 
 /** Returns the start of today (midnight) in UTC-ish for Supabase queries. */
@@ -35,9 +34,9 @@ export function todayStart(): string {
   return now.toISOString();
 }
 
-/** Formats a date to a short readable time like "3:42 PM". */
+/** Formats a date to a short readable time like "15:42". */
 export function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString([], {
+  return new Date(dateStr).toLocaleTimeString("he-IL", {
     hour: "numeric",
     minute: "2-digit",
   });

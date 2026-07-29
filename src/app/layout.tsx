@@ -1,16 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "🐱 Misty's Sitter - Cat Care Tracker",
+  title: "🐱 השומרים של מיסטי - מעקב טיפול בחתולה",
   description:
-    "Coordinate cat-sitting for Misty. Track feedings, tasks, and care.",
+    "תיאום שמירה על מיסטי. מעקב האכלות, משימות וטיפול.",
 };
 
 export const viewport: Viewport = {
@@ -25,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`}>
-      <body className="min-h-full flex flex-col font-[var(--font-inter)] antialiased">
+    <html lang="he" dir="rtl" className="h-full">
+      <body className="min-h-full flex flex-col antialiased">
         {children}
       </body>
     </html>
