@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getSupabase } from "@/lib/supabase";
 import type { Caregiver } from "@/lib/types";
 
@@ -129,8 +130,8 @@ export default function CaregiverPicker({
         </button>
       )}
 
-      {/* Modal overlay */}
-      {showModal && (
+      {/* Modal overlay — portal to body to escape stacking contexts */}
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50">
           {/* Backdrop */}
           <div
@@ -256,7 +257,8 @@ export default function CaregiverPicker({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
