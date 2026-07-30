@@ -140,8 +140,8 @@ export default function CaregiverPicker({
             }}
           />
 
-          {/* Modal content — pinned to bottom of screen */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl card-shadow max-h-[75vh] overflow-y-auto p-6 z-10">
+          {/* Modal content — fixed to bottom of viewport */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl card-shadow max-h-[75vh] overflow-y-auto p-6 z-[60]">
             <h2 className="text-lg font-bold text-gray-800 text-center mb-1">
               🐱 מי את/ה?
             </h2>
