@@ -131,7 +131,7 @@ export default function CaregiverPicker({
 
       {/* Modal overlay */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-50">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -140,8 +140,8 @@ export default function CaregiverPicker({
             }}
           />
 
-          {/* Modal content — slides up from bottom on mobile, centered on desktop */}
-          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl card-shadow w-full sm:max-w-sm max-h-[80vh] overflow-y-auto p-6 z-10 animate-slide-up">
+          {/* Modal content — pinned to bottom of screen */}
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl card-shadow max-h-[75vh] overflow-y-auto p-6 z-10">
             <h2 className="text-lg font-bold text-gray-800 text-center mb-1">
               🐱 מי את/ה?
             </h2>
