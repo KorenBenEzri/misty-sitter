@@ -462,14 +462,14 @@ export default function Home() {
             )}
 
             {/* Food Pack Status */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-gray-500 px-1">
+            <div className="bg-white rounded-2xl p-4 card-shadow fade-in space-y-3">
+              <h2 className="text-sm font-semibold text-gray-500">
                 🍖 מצב חבילת אוכל
               </h2>
 
               {currentPack && foodStatus ? (
                 <div
-                  className={`rounded-2xl p-4 card-shadow border-2 ${foodStatus.bgColor} ${foodStatus.borderColor} fade-in`}
+                  className={`rounded-xl p-4 border-2 ${foodStatus.bgColor} ${foodStatus.borderColor}`}
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -515,7 +515,7 @@ export default function Home() {
                   )}
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl p-4 card-shadow text-center fade-in">
+                <div className="rounded-xl p-4 bg-gray-50 text-center">
                   <p className="text-2xl mb-1">🧊</p>
                   <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
                 </div>
@@ -537,6 +537,13 @@ export default function Home() {
                     : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
                 </button>
               )}
+            </div>
+
+            {/* Divider between food & schedule */}
+            <div className="flex items-center justify-center gap-2 my-2 select-none" aria-hidden="true">
+              <span className="h-px w-10 bg-pink-200" />
+              <span className="text-sm text-pink-300 tracking-widest">· · 🐾 · ·</span>
+              <span className="h-px w-10 bg-pink-200" />
             </div>
 
             {/* Schedule calendar */}
