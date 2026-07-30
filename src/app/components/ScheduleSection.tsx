@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { Caregiver, ScheduledVisit } from "@/lib/types";
 
@@ -72,10 +72,19 @@ function generateDateRange(days: number): Date[] {
 
 /* ---------- Data ---------- */
 
-async function loadScheduledVisits(): Promise<ScheduledVisitWithCaregiver[]> {
+async function loadScheduledVisits(
+  fromDate: string
+): Promise<ScheduledVisitWithCaregiver[]> {
+  // Load from one day before fromDate so we can compute blocked-day logic
+  // (a visit on D blocks D+1, so we need D-1 visits to know if fromDate is blocked)
+  const dayBefore = new Date(fromDate + "T00:00:00");
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  const filterDate = toDateStr(dayBefore);
+
   const { data, error } = await getSupabase()
     .from("scheduled_visits")
     .select("*, caregiver:caregivers(*)")
+    .gte("scheduled_date", filterDate)
     .order("scheduled_date");
   if (error) throw error;
   return (data ?? []) as unknown as ScheduledVisitWithCaregiver[];
@@ -97,9 +106,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  const todayStr = useMemo(() => toDateStr(new Date()), []);
+
   const fetchVisits = useCallback(async () => {
     try {
-      const data = await loadScheduledVisits();
+      const data = await loadScheduledVisits(todayStr);
       setVisits(data);
       setError(false);
     } catch {
@@ -107,11 +118,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [todayStr]);
 
   useEffect(() => {
     let cancelled = false;
-    loadScheduledVisits()
+    loadScheduledVisits(todayStr)
       .then((data) => {
         if (cancelled) return;
         setVisits(data);
@@ -126,7 +137,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [todayStr]);
 
   /* ---------- Build day info ---------- */
 
@@ -186,6 +197,9 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
 
   const handleSignUp = async (dateStr: string) => {
     if (!caregiverId || actionLoading) return;
+    // Guard against signing up on a blocked day (stale UI or direct call)
+    const dayInfo = dayInfos.find((d) => d.dateStr === dateStr);
+    if (dayInfo?.isBlocked) return;
     setActionLoading(dateStr);
     try {
       const { error: insertError } = await getSupabase()
@@ -275,7 +289,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
             const statusEmoji = day.isBlocked
               ? "🔒"
               : firstVisitorEmoji ?? "😿";
-            const isToday = toDateStr(new Date()) === day.dateStr;
+            const isToday = todayStr === day.dateStr;
 
             return (
               <button
