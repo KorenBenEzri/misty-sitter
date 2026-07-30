@@ -180,13 +180,11 @@ export default function Home() {
         if (!cancelled) setError(true);
       })
       .finally(() => {
-        // Only clear loading on initial load or explicit refresh
-        if (!cancelled && loading) setLoading(false);
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   // Refresh food status every minute
@@ -243,8 +241,10 @@ export default function Home() {
       (c) => c.task_id === taskId && c.caregiver_id === caregiver.id
     );
 
-    // Optimistic update: save previous state and update UI immediately
-    const prevCompletions = completions;
+    // Snapshot this specific toggle for rollback (add or remove)
+    const wasAdding = !existing;
+    const removedEntry = existing ?? null;
+
     setSavingTasks((prev) => new Set(prev).add(taskId));
 
     if (existing) {
@@ -269,10 +269,19 @@ export default function Home() {
 
     try {
       if (existing) {
-        const { error: delError } = await getSupabase()
+        // If the entry has a temp ID, it hasn't been persisted yet — delete
+        // by task_id + caregiver_id so we hit the real server-side row.
+        const isTempId = existing.id.startsWith("temp-");
+        const query = getSupabase()
           .from("task_completions")
-          .delete()
-          .eq("id", existing.id);
+          .delete();
+
+        const { error: delError } = isTempId
+          ? await query
+              .eq("task_id", taskId)
+              .eq("caregiver_id", caregiver.id)
+              .gte("completed_at", todayStart())
+          : await query.eq("id", existing.id);
         if (delError) throw delError;
       } else {
         // Auto check-in on first task completion
@@ -287,8 +296,19 @@ export default function Home() {
       silentRefresh();
     } catch (err) {
       console.error("Failed to toggle task:", err);
-      // Revert optimistic update
-      setCompletions(prevCompletions);
+      // Revert only this toggle's optimistic update using functional updater
+      // to avoid clobbering concurrent toggles on other tasks.
+      setCompletions((prev) => {
+        if (wasAdding) {
+          // We added a temp entry — remove it
+          return prev.filter(
+            (c) =>
+              !(c.task_id === taskId && c.caregiver_id === caregiver.id)
+          );
+        }
+        // We removed an entry — re-add it
+        return removedEntry ? [removedEntry, ...prev] : prev;
+      });
       alert("משהו השתבש בעדכון המשימה. נסו שוב.");
     } finally {
       setSavingTasks((prev) => {
