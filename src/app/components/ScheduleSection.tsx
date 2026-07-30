@@ -6,10 +6,14 @@ import type { Caregiver, ScheduledVisit } from "@/lib/types";
 
 /* ---------- Constants ---------- */
 
-/** Fixed trip range: August 1 – September 2, 2026 (inclusive, 33 days) */
+/** Fixed trip range: August 1 – September 2, 2026 (inclusive) */
 const TRIP_START = new Date(2026, 7, 1); // Aug 1 2026
 const TRIP_END = new Date(2026, 8, 2); // Sep 2 2026
-const TOTAL_TRIP_DAYS = 33;
+/** Derived from TRIP_START/TRIP_END so it stays in sync automatically */
+const TOTAL_TRIP_DAYS =
+  Math.round(
+    (TRIP_END.getTime() - TRIP_START.getTime()) / (1000 * 60 * 60 * 24)
+  ) + 1; // +1 because both endpoints are inclusive
 
 const HEBREW_DAY_NAMES = [
   "ראשון",

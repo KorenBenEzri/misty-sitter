@@ -134,14 +134,14 @@ export default function CaregiverPicker({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => {
               if (selected) setShowModal(false);
             }}
           />
 
           {/* Modal content */}
-          <div className="relative bg-white rounded-2xl card-shadow w-full max-w-sm p-6 pop-in z-10">
+          <div className="relative bg-white rounded-2xl card-shadow w-full max-w-sm max-h-[85vh] overflow-y-auto p-6 pop-in z-10">
             <h2 className="text-lg font-bold text-gray-800 text-center mb-1">
               🐱 מי את/ה?
             </h2>

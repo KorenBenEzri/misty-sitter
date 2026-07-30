@@ -159,6 +159,7 @@ export default function Home() {
   const [currentPack, setCurrentPack] =
     useState<FoodPackWithCaregiver | null>(null);
   const [celebratingTask, setCelebratingTask] = useState<string | null>(null);
+  const [savingTasks, setSavingTasks] = useState<Set<string>>(new Set());
   const [defrosting, setDefrosting] = useState(false);
   const [justDefrosted, setJustDefrosted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -179,11 +180,13 @@ export default function Home() {
         if (!cancelled) setError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        // Only clear loading on initial load or explicit refresh
+        if (!cancelled && loading) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
   // Refresh food status every minute
@@ -199,6 +202,14 @@ export default function Home() {
     setError(false);
     setRefreshKey((k) => k + 1);
   };
+
+  // Silent refresh: re-fetch data without showing full loading screen
+  const silentRefresh = () => {
+    setRefreshKey((k) => k + 1);
+  };
+
+  // Monotonic counter for temp IDs in optimistic updates
+  const tempIdCounter = useRef(0);
 
   // Track which caregivers we've already checked in (or are checking in)
   // to avoid duplicate inserts from rapid concurrent actions.
@@ -232,29 +243,59 @@ export default function Home() {
       (c) => c.task_id === taskId && c.caregiver_id === caregiver.id
     );
 
+    // Optimistic update: save previous state and update UI immediately
+    const prevCompletions = completions;
+    setSavingTasks((prev) => new Set(prev).add(taskId));
+
+    if (existing) {
+      // Remove completion optimistically
+      setCompletions((prev) =>
+        prev.filter((c) => c.id !== existing.id)
+      );
+    } else {
+      // Add completion optimistically with a temp entry
+      const tempCompletion: CompletionWithCaregiver = {
+        id: `temp-${++tempIdCounter.current}`,
+        task_id: taskId,
+        caregiver_id: caregiver.id,
+        completed_at: todayStart(),
+        notes: null,
+        caregivers: caregiver,
+      };
+      setCompletions((prev) => [tempCompletion, ...prev]);
+      setCelebratingTask(taskId);
+      setTimeout(() => setCelebratingTask(null), 600);
+    }
+
     try {
       if (existing) {
-        const { error } = await getSupabase()
+        const { error: delError } = await getSupabase()
           .from("task_completions")
           .delete()
           .eq("id", existing.id);
-        if (error) throw error;
+        if (delError) throw delError;
       } else {
         // Auto check-in on first task completion
         await ensureCheckedIn(caregiver);
 
-        const { error } = await getSupabase()
+        const { error: insError } = await getSupabase()
           .from("task_completions")
           .insert({ task_id: taskId, caregiver_id: caregiver.id });
-        if (error) throw error;
-        setCelebratingTask(taskId);
-        setTimeout(() => setCelebratingTask(null), 600);
+        if (insError) throw insError;
       }
-      refresh();
+      // Silently sync with server to get real IDs
+      silentRefresh();
     } catch (err) {
       console.error("Failed to toggle task:", err);
+      // Revert optimistic update
+      setCompletions(prevCompletions);
       alert("משהו השתבש בעדכון המשימה. נסו שוב.");
-      refresh();
+    } finally {
+      setSavingTasks((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
     }
   };
 
@@ -396,6 +437,7 @@ export default function Home() {
                   const doneByAnyone = isCompletedByAnyone(task.id);
                   const taskCompletions = getTaskCompletions(task.id);
                   const isCelebrating = celebratingTask === task.id;
+                  const isSaving = savingTasks.has(task.id);
 
                   return (
                     <div
@@ -407,7 +449,7 @@ export default function Home() {
                       <div className="flex items-start gap-3">
                         <button
                           onClick={() => handleToggleTask(task.id)}
-                          disabled={!caregiver}
+                          disabled={!caregiver || isSaving}
                           role="checkbox"
                           aria-checked={doneByMe}
                           aria-label={task.name}
@@ -423,6 +465,9 @@ export default function Home() {
                             <span className="text-sm">✓</span>
                           )}
                         </button>
+                        {isSaving && (
+                          <span className="cat-saving text-sm flex-shrink-0" aria-label="שומר...">🐱</span>
+                        )}
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

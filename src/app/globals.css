@@ -161,6 +161,17 @@ button:focus-visible, a:focus-visible, [role="checkbox"]:focus-visible, [role="o
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+/* Cat walking animation for saving indicator */
+@keyframes catWalk {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(8px); }
+}
+
+.cat-saving {
+  animation: catWalk 0.6s ease-in-out infinite;
+  display: inline-block;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
