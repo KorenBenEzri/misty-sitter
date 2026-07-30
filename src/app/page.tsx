@@ -389,7 +389,10 @@ export default function Home() {
             </h1>
             <p className="text-xs text-gray-400">מעקב טיפול בחתולה</p>
           </div>
-          <CaregiverPicker onSelect={setCaregiver} selected={caregiver} />
+          <div className="flex items-center gap-3">
+            <a href="/instructions" className="text-pink-400 hover:text-pink-500 text-xl" title="הוראות טיפול">📋</a>
+            <CaregiverPicker onSelect={setCaregiver} selected={caregiver} />
+          </div>
         </div>
       </header>
 
