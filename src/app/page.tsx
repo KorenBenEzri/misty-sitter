@@ -7,6 +7,7 @@ import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Link from "next/link";
 import CaregiverPicker from "./components/CaregiverPicker";
 import HistorySection from "./components/HistorySection";
+import ScheduleSection from "./components/ScheduleSection";
 
 interface CompletionWithCaregiver extends TaskCompletion {
   caregivers: Caregiver;
@@ -537,6 +538,9 @@ export default function Home() {
                 </button>
               )}
             </div>
+
+            {/* Schedule calendar */}
+            <ScheduleSection caregiverId={caregiver?.id} />
 
             {/* Today's visits summary */}
             {todayVisits.length > 0 && (

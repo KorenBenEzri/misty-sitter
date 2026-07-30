@@ -28,6 +28,7 @@ export default function CaregiverPicker({
   const [loaded, setLoaded] = useState(false);
   const [showAddNew, setShowAddNew] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [newEmoji, setNewEmoji] = useState(PRESET_EMOJIS[0]);
   const [adding, setAdding] = useState(false);
 
@@ -82,6 +83,7 @@ export default function CaregiverPicker({
     setShowModal(false);
     setShowAddNew(false);
     setNewName("");
+    setNewPhone("");
   };
 
   const handleAddNew = async () => {
@@ -91,7 +93,11 @@ export default function CaregiverPicker({
     try {
       const { data, error } = await getSupabase()
         .from("caregivers")
-        .insert({ name: trimmed, emoji: newEmoji })
+        .insert({
+          name: trimmed,
+          emoji: newEmoji,
+          phone_number: newPhone.trim() || null,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -187,6 +193,16 @@ export default function CaregiverPicker({
                     if (e.key === "Enter") handleAddNew();
                   }}
                 />
+                <input
+                  type="tel"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="מספר טלפון (אופציונלי)"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-pink-400"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddNew();
+                  }}
+                />
 
                 {/* Emoji picker */}
                 <div>
@@ -220,6 +236,7 @@ export default function CaregiverPicker({
                     onClick={() => {
                       setShowAddNew(false);
                       setNewName("");
+                      setNewPhone("");
                     }}
                     className="px-4 py-2 rounded-lg bg-gray-100 text-gray-500 text-sm hover:bg-gray-200 transition-colors"
                   >

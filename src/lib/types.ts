@@ -3,6 +3,7 @@ export interface Caregiver {
   name: string;
   emoji: string;
   created_at: string;
+  phone_number: string | null;
 }
 
 export interface Task {
@@ -52,5 +53,13 @@ export interface Visit {
   caregiver_id: string;
   checked_in_at: string;
   notes: string | null;
+  caregiver?: Caregiver;
+}
+
+export interface ScheduledVisit {
+  id: string;
+  caregiver_id: string;
+  scheduled_date: string;
+  created_at: string;
   caregiver?: Caregiver;
 }
