@@ -6,7 +6,10 @@ import type { Caregiver, ScheduledVisit } from "@/lib/types";
 
 /* ---------- Constants ---------- */
 
-const DAYS_TO_SHOW = 21;
+/** Fixed trip range: August 1 – September 2, 2026 (inclusive, 33 days) */
+const TRIP_START = new Date(2026, 7, 1); // Aug 1 2026
+const TRIP_END = new Date(2026, 8, 2); // Sep 2 2026
+const TOTAL_TRIP_DAYS = 33;
 
 const HEBREW_DAY_NAMES = [
   "ראשון",
@@ -38,6 +41,7 @@ interface DayInfo {
   blockedBy: Caregiver | null; // who caused the block (visited day before)
   hasMe: boolean;
   myVisitId: string | null;
+  isPast: boolean;
 }
 
 /* ---------- Helpers ---------- */
@@ -58,14 +62,16 @@ function formatHebrewDate(date: Date): string {
   return `יום ${dayName}, ${formatted}`;
 }
 
-function generateDateRange(days: number): Date[] {
+function generateTripDates(): Date[] {
   const dates: Date[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 0; i < days; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    dates.push(d);
+  const start = new Date(TRIP_START);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(TRIP_END);
+  end.setHours(0, 0, 0, 0);
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
   }
   return dates;
 }
@@ -108,9 +114,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
 
   const todayStr = useMemo(() => toDateStr(new Date()), []);
 
+  const tripStartStr = toDateStr(TRIP_START);
+
   const fetchVisits = useCallback(async () => {
     try {
-      const data = await loadScheduledVisits(todayStr);
+      const data = await loadScheduledVisits(tripStartStr);
       setVisits(data);
       setError(false);
     } catch {
@@ -118,11 +126,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     } finally {
       setLoading(false);
     }
-  }, [todayStr]);
+  }, [tripStartStr]);
 
   useEffect(() => {
     let cancelled = false;
-    loadScheduledVisits(todayStr)
+    loadScheduledVisits(tripStartStr)
       .then((data) => {
         if (cancelled) return;
         setVisits(data);
@@ -137,11 +145,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     return () => {
       cancelled = true;
     };
-  }, [todayStr]);
+  }, [tripStartStr]);
 
   /* ---------- Build day info ---------- */
 
-  const dates = generateDateRange(DAYS_TO_SHOW);
+  const dates = generateTripDates();
 
   // Group visits by date
   const visitsByDate: Record<string, ScheduledVisitWithCaregiver[]> = {};
@@ -164,6 +172,9 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     }
   }
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const dayInfos: DayInfo[] = dates.map((date) => {
     const dateStr = toDateStr(date);
     const dayVisitors = visitsByDate[dateStr] ?? [];
@@ -171,6 +182,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     const myVisit = dayVisitors.find((v) => v.caregiver_id === caregiverId);
     const isBlocked =
       !!blockedDates[dateStr] && dayVisitors.length === 0;
+    const isPast = date < today;
 
     return {
       date,
@@ -184,14 +196,18 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
       blockedBy: isBlocked ? blockedDates[dateStr] : null,
       hasMe,
       myVisitId: myVisit?.id ?? null,
+      isPast,
     };
   });
 
-  // Coverage stats
+  // Coverage stats — count against the full trip length
   const coveredDays = dayInfos.filter((d) => d.visitors.length > 0).length;
-  const totalDays = dayInfos.length;
+  const totalDays = TOTAL_TRIP_DAYS;
   const coveragePercent =
     totalDays > 0 ? Math.round((coveredDays / totalDays) * 100) : 0;
+
+  // Separate past days from future/today for card rendering
+  const futureDayInfos = dayInfos.filter((d) => !d.isPast);
 
   /* ---------- Actions ---------- */
 
@@ -279,7 +295,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
       <div className="bg-white rounded-2xl p-3 card-shadow overflow-x-auto">
         <div
           className="flex gap-1"
-          style={{ minWidth: `${DAYS_TO_SHOW * 44}px`, direction: "rtl" }}
+          style={{ minWidth: `${TOTAL_TRIP_DAYS * 44}px`, direction: "rtl" }}
         >
           {dayInfos.map((day) => {
             const firstVisitorEmoji =
@@ -294,13 +310,16 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
             return (
               <button
                 key={day.dateStr}
-                onClick={() => scrollToCard(day.dateStr)}
+                onClick={() => !day.isPast && scrollToCard(day.dateStr)}
+                disabled={day.isPast}
                 className={`flex flex-col items-center min-w-[40px] px-1 py-1.5 rounded-xl transition-all duration-200 ${
-                  isToday
-                    ? "bg-pink-100 border border-pink-300"
-                    : day.hasMe
-                      ? "bg-amber-50 border border-amber-200"
-                      : "hover:bg-gray-50"
+                  day.isPast
+                    ? "opacity-40 cursor-default"
+                    : isToday
+                      ? "bg-pink-100 border border-pink-300"
+                      : day.hasMe
+                        ? "bg-amber-50 border border-amber-200"
+                        : "hover:bg-gray-50"
                 }`}
               >
                 <span className="text-[10px] text-gray-400 font-medium">
@@ -312,7 +331,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
                     : statusEmoji}
                 </span>
                 <span
-                  className={`text-xs font-medium ${isToday ? "text-pink-600" : "text-gray-600"}`}
+                  className={`text-xs font-medium ${day.isPast ? "text-gray-400" : isToday ? "text-pink-600" : "text-gray-600"}`}
                 >
                   {day.dayNumber}
                 </span>
@@ -322,9 +341,9 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
         </div>
       </div>
 
-      {/* Day cards */}
+      {/* Day cards (only today and future) */}
       <div className="space-y-3">
-        {dayInfos.map((day) => {
+        {futureDayInfos.map((day) => {
           const isActioning = actionLoading === day.dateStr;
 
           // Blocked day

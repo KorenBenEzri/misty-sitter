@@ -333,6 +333,16 @@ export default function Home() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Instructions link at top */}
+        <div className="flex justify-center">
+          <Link
+            href="/instructions"
+            className="inline-flex items-center gap-1.5 text-sm text-pink-400 hover:text-pink-500 transition-colors"
+          >
+            📋 הוראות טיפול
+          </Link>
+        </div>
+
         {/* Loading state */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
@@ -540,14 +550,21 @@ export default function Home() {
             </div>
 
             {/* Divider between food & schedule */}
-            <div className="flex items-center justify-center gap-2 my-2 select-none" aria-hidden="true">
-              <span className="h-px w-10 bg-pink-200" />
-              <span className="text-sm text-pink-300 tracking-widest">· · 🐾 · ·</span>
-              <span className="h-px w-10 bg-pink-200" />
+            <div className="flex items-center gap-3 my-6" aria-hidden="true">
+              <div className="flex-1 h-px bg-gradient-to-l from-pink-200 to-transparent"></div>
+              <span className="text-2xl">🐾</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-pink-200 to-transparent"></div>
             </div>
 
             {/* Schedule calendar */}
             <ScheduleSection caregiverId={caregiver?.id} />
+
+            {/* Divider between schedule & activity */}
+            <div className="flex items-center gap-3 my-6" aria-hidden="true">
+              <div className="flex-1 h-px bg-gradient-to-l from-pink-200 to-transparent"></div>
+              <span className="text-2xl">🐾</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-pink-200 to-transparent"></div>
+            </div>
 
             {/* Today's visits summary */}
             {todayVisits.length > 0 && (
