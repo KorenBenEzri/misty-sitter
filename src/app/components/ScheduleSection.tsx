@@ -9,11 +9,20 @@ import type { Caregiver, ScheduledVisit } from "@/lib/types";
 /** Fixed trip range: August 1 – September 2, 2026 (inclusive) */
 const TRIP_START = new Date(2026, 7, 1); // Aug 1 2026
 const TRIP_END = new Date(2026, 8, 2); // Sep 2 2026
-/** Derived from TRIP_START/TRIP_END so it stays in sync automatically */
-const TOTAL_TRIP_DAYS =
-  Math.round(
-    (TRIP_END.getTime() - TRIP_START.getTime()) / (1000 * 60 * 60 * 24)
-  ) + 1; // +1 because both endpoints are inclusive
+/** Count only Sun–Thu days in the trip range */
+const TOTAL_TRIP_DAYS = (() => {
+  let count = 0;
+  const cursor = new Date(TRIP_START);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(TRIP_END);
+  end.setHours(0, 0, 0, 0);
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 5 && day !== 6) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+})();
 
 const HEBREW_DAY_NAMES = [
   "ראשון",
@@ -74,7 +83,11 @@ function generateTripDates(): Date[] {
   end.setHours(0, 0, 0, 0);
   const cursor = new Date(start);
   while (cursor <= end) {
-    dates.push(new Date(cursor));
+    const day = cursor.getDay();
+    // Skip Friday (5) and Saturday (6)
+    if (day !== 5 && day !== 6) {
+      dates.push(new Date(cursor));
+    }
     cursor.setDate(cursor.getDate() + 1);
   }
   return dates;
