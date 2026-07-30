@@ -76,6 +76,9 @@ function generateTripDates(): Date[] {
   return dates;
 }
 
+/** Pre-computed trip start as YYYY-MM-DD (module-level, never changes) */
+const TRIP_START_STR = toDateStr(TRIP_START);
+
 /* ---------- Data ---------- */
 
 async function loadScheduledVisits(
@@ -114,11 +117,9 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
 
   const todayStr = useMemo(() => toDateStr(new Date()), []);
 
-  const tripStartStr = toDateStr(TRIP_START);
-
   const fetchVisits = useCallback(async () => {
     try {
-      const data = await loadScheduledVisits(tripStartStr);
+      const data = await loadScheduledVisits(TRIP_START_STR);
       setVisits(data);
       setError(false);
     } catch {
@@ -126,11 +127,11 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     } finally {
       setLoading(false);
     }
-  }, [tripStartStr]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    loadScheduledVisits(tripStartStr)
+    loadScheduledVisits(TRIP_START_STR)
       .then((data) => {
         if (cancelled) return;
         setVisits(data);
@@ -145,7 +146,7 @@ export default function ScheduleSection({ caregiverId }: ScheduleSectionProps) {
     return () => {
       cancelled = true;
     };
-  }, [tripStartStr]);
+  }, []);
 
   /* ---------- Build day info ---------- */
 
