@@ -125,6 +125,21 @@ button:focus-visible, a:focus-visible, [role="checkbox"]:focus-visible, [role="o
   animation: pop 0.3s ease-out;
 }
 
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
 /* Sparkle animation for completed tasks */
 @keyframes sparkle {
   0%,
