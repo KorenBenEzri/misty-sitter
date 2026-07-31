@@ -13,6 +13,9 @@ set -euo pipefail
 VIDEO_FILE="${1:?Usage: $0 <video_file> <task_name>}"
 TASK_NAME="${2:?Usage: $0 <video_file> <task_name>}"
 
+# Escape single quotes for safe SQL interpolation
+TASK_NAME_SQL=$(echo "$TASK_NAME" | sed "s/'/''/g")
+
 if [ ! -f "$VIDEO_FILE" ]; then
   echo "Error: File '$VIDEO_FILE' not found"
   exit 1
@@ -33,10 +36,10 @@ echo "📋 Template SQL INSERT:"
 cat <<EOF
 INSERT INTO public.instructions (title, description, task_id, video_path, transcript, steps, sort_order)
 VALUES (
-  '${TASK_NAME}',
+  '${TASK_NAME_SQL}',
   'TODO: summary',
-  (SELECT id FROM tasks WHERE name ILIKE '%${TASK_NAME}%' LIMIT 1),
-  'instruction-videos/TODO.mp4',
+  (SELECT id FROM tasks WHERE name ILIKE '%${TASK_NAME_SQL}%' LIMIT 1),
+  'TODO.mp4',
   '$(echo "$TRANSCRIPT" | sed "s/'/''/g")',
   ARRAY['שלב 1: ...', 'שלב 2: ...'],
   0
