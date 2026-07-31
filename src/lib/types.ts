@@ -45,6 +45,10 @@ export interface Instruction {
   title: string;
   description: string | null;
   video_url: string | null;
+  video_path: string | null;
+  task_id: string | null;
+  transcript: string | null;
+  steps: string[] | null;
   sort_order: number;
   created_at: string;
 }

@@ -25,3 +25,13 @@ export function getSupabase(): SupabaseClient {
   _supabase = createClient(supabaseUrl, supabaseAnonKey);
   return _supabase;
 }
+
+/**
+ * Build a public URL for an object in Supabase Storage.
+ * Use for instruction videos stored in the 'instruction-videos' bucket.
+ */
+export function getStorageUrl(bucket: string, path: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+}

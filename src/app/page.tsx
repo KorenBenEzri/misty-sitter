@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSupabase } from "@/lib/supabase";
-import type { Caregiver, Task, TaskCompletion, Visit, FoodPack } from "@/lib/types";
+import { getSupabase, getStorageUrl } from "@/lib/supabase";
+import type { Caregiver, Task, TaskCompletion, Visit, FoodPack, Instruction } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Link from "next/link";
 import CaregiverPicker from "./components/CaregiverPicker";
@@ -116,7 +116,7 @@ async function loadDashboard() {
   const supabase = getSupabase();
   const today = todayStart();
 
-  const [tasksRes, completionsRes, visitsRes] = await Promise.all([
+  const [tasksRes, completionsRes, visitsRes, instructionsRes] = await Promise.all([
     supabase
       .from("tasks")
       .select("*")
@@ -132,6 +132,10 @@ async function loadDashboard() {
       .select("*, caregivers(*)")
       .gte("checked_in_at", today)
       .order("checked_in_at", { ascending: false }),
+    supabase
+      .from("instructions")
+      .select("*")
+      .not("task_id", "is", null),
   ]);
 
   // Load active food packs (ready + thawing)
@@ -192,6 +196,7 @@ async function loadDashboard() {
     visits: (visitsRes.data ?? []) as (Visit & { caregivers: Caregiver })[],
     readyPack,
     thawingPack,
+    taskInstructions: (instructionsRes.data ?? []) as Instruction[],
   };
 }
 
@@ -213,6 +218,8 @@ export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [taskInstructions, setTaskInstructions] = useState<Instruction[]>([]);
+  const [expandedInstructions, setExpandedInstructions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +231,7 @@ export default function Home() {
         setTodayVisits(data.visits);
         setReadyPack(data.readyPack);
         setThawingPack(data.thawingPack);
+        setTaskInstructions(data.taskInstructions);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -458,6 +466,21 @@ export default function Home() {
   const getTaskCompletions = (taskId: string) =>
     completions.filter((c) => c.task_id === taskId);
 
+  const getTaskInstruction = (taskId: string) =>
+    taskInstructions.find((i) => i.task_id === taskId) ?? null;
+
+  const toggleInstruction = (taskId: string) => {
+    setExpandedInstructions((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
   const completedCount = tasks.filter((t) => isCompletedByAnyone(t.id)).length;
   const totalTasks = tasks.length;
   const progressPercent =
@@ -588,6 +611,19 @@ export default function Home() {
                             >
                               {task.name}
                             </span>
+                            {getTaskInstruction(task.id) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleInstruction(task.id);
+                                }}
+                                className="text-sm opacity-60 hover:opacity-100 transition-opacity"
+                                aria-label="הוראות"
+                                title="הוראות"
+                              >
+                                ℹ️
+                              </button>
+                            )}
                           </div>
                           {task.description && (
                             <p className="text-xs text-gray-400 mt-0.5 ms-6">
@@ -613,6 +649,44 @@ export default function Home() {
                               ))}
                             </div>
                           )}
+
+                          {/* Inline instruction panel */}
+                          {expandedInstructions.has(task.id) && (() => {
+                            const instr = getTaskInstruction(task.id);
+                            if (!instr) return null;
+                            const instrVideoUrl = instr.video_path
+                              ? getStorageUrl("instruction-videos", instr.video_path)
+                              : instr.video_url;
+                            return (
+                              <div className="mt-3 ms-6 p-3 bg-pink-50/50 rounded-xl animate-slide-up">
+                                {/* Steps */}
+                                {instr.steps && instr.steps.length > 0 && (
+                                  <ol className="space-y-1 text-xs text-gray-600 list-decimal list-inside mb-2">
+                                    {instr.steps.map((step, i) => (
+                                      <li key={i} className="leading-relaxed">
+                                        {step}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+                                {/* Fallback to description if no steps */}
+                                {(!instr.steps || instr.steps.length === 0) && instr.description && (
+                                  <p className="text-xs text-gray-500 whitespace-pre-line mb-2">
+                                    {instr.description}
+                                  </p>
+                                )}
+                                {/* Video link */}
+                                {instrVideoUrl && (
+                                  <Link
+                                    href="/instructions"
+                                    className="inline-flex items-center gap-1 text-xs text-pink-400 hover:text-pink-500 transition-colors"
+                                  >
+                                    📹 וידאו
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {isCelebrating && (

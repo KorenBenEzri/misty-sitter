@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, getStorageUrl } from "@/lib/supabase";
 import Link from "next/link";
 import type { Instruction } from "@/lib/types";
 
@@ -21,6 +21,13 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|ogg)(\?|$)/i.test(url);
 }
 
+function resolveVideoUrl(instruction: Instruction): string | null {
+  if (instruction.video_path) {
+    return getStorageUrl("instruction-videos", instruction.video_path);
+  }
+  return instruction.video_url ?? null;
+}
+
 async function loadInstructions(): Promise<Instruction[]> {
   const { data } = await getSupabase()
     .from("instructions")
@@ -33,6 +40,7 @@ export default function InstructionsPage() {
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [expandedVideo, setExpandedVideo] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +58,18 @@ export default function InstructionsPage() {
       cancelled = true;
     };
   }, []);
+
+  const toggleVideo = (id: string) => {
+    setExpandedVideo((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-full paw-bg">
@@ -94,57 +114,92 @@ export default function InstructionsPage() {
                 </p>
               </div>
             ) : (
-              instructions.map((instruction, index) => (
-                <div
-                  key={instruction.id}
-                  className="bg-white rounded-2xl card-shadow overflow-hidden fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  {/* Video embed */}
-                  {instruction.video_url && (
-                    <div className="w-full">
-                      {getYouTubeEmbedUrl(instruction.video_url) ? (
-                        <div className="relative w-full pt-[56.25%]">
-                          <iframe
-                            className="absolute inset-0 w-full h-full"
-                            src={getYouTubeEmbedUrl(instruction.video_url)!}
-                            title={instruction.title}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+              instructions.map((instruction, index) => {
+                const videoUrl = resolveVideoUrl(instruction);
+                const isExpanded = expandedVideo.has(instruction.id);
+
+                return (
+                  <div
+                    key={instruction.id}
+                    className="bg-white rounded-2xl card-shadow overflow-hidden fade-in"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    {/* Content */}
+                    <div className="p-5">
+                      <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                        <span className="text-pink-400">🐾</span>
+                        {instruction.title}
+                      </h3>
+
+                      {/* Description — prominent summary */}
+                      {instruction.description && (
+                        <p className="mt-2 text-sm text-gray-500 leading-relaxed whitespace-pre-line">
+                          {instruction.description}
+                        </p>
+                      )}
+
+                      {/* Steps — numbered list */}
+                      {instruction.steps && instruction.steps.length > 0 && (
+                        <ol className="mt-3 space-y-1.5 text-sm text-gray-600 list-decimal list-inside">
+                          {instruction.steps.map((step, i) => (
+                            <li key={i} className="leading-relaxed">
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+
+                      {/* Expandable video section */}
+                      {videoUrl && (
+                        <div className="mt-3 border-t border-pink-50 pt-3">
+                          <button
+                            onClick={() => toggleVideo(instruction.id)}
+                            className="w-full text-sm text-pink-400 hover:text-pink-500 transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            📹{" "}
+                            {isExpanded
+                              ? "הסתר וידאו"
+                              : "צפו בהדגמה מלאה"}
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-3 animate-slide-up">
+                              {getYouTubeEmbedUrl(videoUrl) ? (
+                                <div className="relative w-full pt-[56.25%]">
+                                  <iframe
+                                    className="absolute inset-0 w-full h-full rounded-xl"
+                                    src={getYouTubeEmbedUrl(videoUrl)!}
+                                    title={instruction.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                </div>
+                              ) : isVideoUrl(videoUrl) ? (
+                                <video
+                                  controls
+                                  className="w-full rounded-xl"
+                                  preload="metadata"
+                                >
+                                  <source src={videoUrl} />
+                                  הדפדפן שלך לא תומך בהפעלת וידאו.
+                                </video>
+                              ) : (
+                                <a
+                                  href={videoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block p-3 bg-lavender-50 text-center text-sm text-lavender-300 hover:text-pink-500 transition-colors rounded-xl"
+                                >
+                                  🎬 צפה בסרטון ↗
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ) : isVideoUrl(instruction.video_url) ? (
-                        <video controls className="w-full" preload="metadata">
-                          <source src={instruction.video_url} />
-                          הדפדפן שלך לא תומך בהפעלת וידאו.
-                        </video>
-                      ) : (
-                        <a
-                          href={instruction.video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block p-3 bg-lavender-50 text-center text-sm text-lavender-300 hover:text-pink-500 transition-colors"
-                        >
-                          🎬 צפה בסרטון ↗
-                        </a>
                       )}
                     </div>
-                  )}
-
-                  {/* Content */}
-                  <div className="p-5">
-                    <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                      <span className="text-pink-400">🐾</span>
-                      {instruction.title}
-                    </h3>
-                    {instruction.description && (
-                      <p className="mt-2 text-sm text-gray-500 leading-relaxed whitespace-pre-line">
-                        {instruction.description}
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </>
         )}
