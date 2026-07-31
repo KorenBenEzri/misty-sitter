@@ -25,21 +25,6 @@ export interface TaskCompletion {
   caregiver?: Caregiver;
 }
 
-export interface FoodPack {
-  id: string;
-  label: string;
-  defrosted_at: string;
-  expires_at: string;
-  placed_by: string | null;
-  replaced_by: string | null;
-  replaced_at: string | null;
-  status: "thawing" | "ready" | "expired" | "replaced";
-  thaw_until: string | null;
-  notes: string | null;
-  created_at: string;
-  placed_by_caregiver?: Caregiver | null;
-}
-
 export interface Instruction {
   id: string;
   title: string;

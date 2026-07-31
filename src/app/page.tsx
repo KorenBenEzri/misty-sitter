@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSupabase, getStorageUrl } from "@/lib/supabase";
-import type { Caregiver, Task, TaskCompletion, Visit, FoodPack, Instruction } from "@/lib/types";
+import type { Caregiver, Task, TaskCompletion, Visit, Instruction } from "@/lib/types";
 import { relativeTime, formatTime, todayStart } from "@/lib/timeUtils";
 import Link from "next/link";
 import CaregiverPicker from "./components/CaregiverPicker";
@@ -11,105 +11,6 @@ import ScheduleSection from "./components/ScheduleSection";
 
 interface CompletionWithCaregiver extends TaskCompletion {
   caregivers: Caregiver;
-}
-
-interface FoodPackWithCaregiver extends FoodPack {
-  placed_by_caregiver: Caregiver | null;
-}
-
-type FreshStatus = "fresh" | "ok" | "old" | "expired";
-
-function getFoodStatus(pack: FoodPack): {
-  status: FreshStatus;
-  label: string;
-  emoji: string;
-  color: string;
-  bgColor: string;
-  borderColor: string;
-  message: string;
-  hoursLeft: number;
-} {
-  const now = new Date();
-  const expires = new Date(pack.expires_at);
-  const hoursLeft = (expires.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-  if (hoursLeft <= 0 || pack.status === "expired") {
-    return {
-      status: "expired",
-      label: "פג תוקף!",
-      emoji: "🔴",
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
-      message: "החבילה פגה! יש להשליך",
-      hoursLeft: 0,
-    };
-  }
-  // Less than 18h left → Getting old (safety margin over 12h thaw time)
-  if (hoursLeft < 18) {
-    return {
-      status: "old",
-      label: "מתיישן",
-      emoji: "🟠",
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      borderColor: "border-orange-200",
-      message: "נא להוציא חבילה חדשה להפשרה במקרר",
-      hoursLeft,
-    };
-  }
-  // Less than 44h left → OK
-  if (hoursLeft < 44) {
-    return {
-      status: "ok",
-      label: "בסדר",
-      emoji: "🟡",
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-50",
-      borderColor: "border-yellow-200",
-      message: "עדיין טוב, שימו עין",
-      hoursLeft,
-    };
-  }
-  // 44+ hours left → Fresh
-  return {
-    status: "fresh",
-    label: "טרי",
-    emoji: "🟢",
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-    message: "טרי ומוכן!",
-    hoursLeft,
-  };
-}
-
-function getThawStatus(pack: FoodPack): {
-  isReady: boolean;
-  hoursLeft: number;
-  message: string;
-} {
-  if (!pack.thaw_until)
-    return { isReady: true, hoursLeft: 0, message: "מוכן" };
-  const thawEnd = new Date(pack.thaw_until).getTime();
-  const now = Date.now();
-  const rawHoursLeft = (thawEnd - now) / (1000 * 60 * 60);
-  if (rawHoursLeft <= 0)
-    return { isReady: true, hoursLeft: 0, message: "מוכנה לשימוש!" };
-  return {
-    isReady: false,
-    hoursLeft: rawHoursLeft,
-    message: `עוד ${formatHoursLeft(rawHoursLeft)} להפשרה`,
-  };
-}
-
-function formatHoursLeft(hours: number): string {
-  if (hours <= 0) return "פג תוקף";
-  if (hours < 1) return `נשארו ${Math.round(hours * 60)} דקות`;
-  if (hours < 24) return `נשארו ${Math.round(hours)} שעות`;
-  const days = Math.floor(hours / 24);
-  const remainingHours = Math.round(hours % 24);
-  return `נשארו ${days} ימים ${remainingHours} שע׳`;
 }
 
 async function loadDashboard() {
@@ -138,64 +39,10 @@ async function loadDashboard() {
       .not("task_id", "is", null),
   ]);
 
-  // Load active food packs (ready + thawing)
-  const { data: foodData } = await supabase
-    .from("food_packs")
-    .select("*")
-    .in("status", ["thawing", "ready"])
-    .order("defrosted_at", { ascending: false });
-
-  // Resolve caregiver for each pack
-  async function resolvePack(
-    pack: FoodPack
-  ): Promise<FoodPackWithCaregiver> {
-    let placedByCaregiver: Caregiver | null = null;
-    if (pack.placed_by) {
-      const { data } = await supabase
-        .from("caregivers")
-        .select("*")
-        .eq("id", pack.placed_by)
-        .single();
-      placedByCaregiver = data;
-    }
-    return { ...pack, placed_by_caregiver: placedByCaregiver };
-  }
-
-  const rawPacks = (foodData ?? []) as FoodPack[];
-
-  // Auto-transition: if a thawing pack's thaw_until has passed, mark it ready
-  // Create a new array to avoid mutating the original Supabase response objects.
-  const packs = await Promise.all(
-    rawPacks.map(async (pack) => {
-      if (
-        pack.status === "thawing" &&
-        pack.thaw_until &&
-        new Date(pack.thaw_until) <= new Date()
-      ) {
-        await supabase
-          .from("food_packs")
-          .update({ status: "ready" })
-          .eq("id", pack.id);
-        return { ...pack, status: "ready" as const };
-      }
-      return pack;
-    })
-  );
-
-  const readyPackRaw = packs.find((p) => p.status === "ready") ?? null;
-  const thawingPackRaw = packs.find((p) => p.status === "thawing") ?? null;
-
-  const readyPack = readyPackRaw ? await resolvePack(readyPackRaw) : null;
-  const thawingPack = thawingPackRaw
-    ? await resolvePack(thawingPackRaw)
-    : null;
-
   return {
     tasks: (tasksRes.data ?? []) as Task[],
     completions: (completionsRes.data ?? []) as CompletionWithCaregiver[],
     visits: (visitsRes.data ?? []) as (Visit & { caregivers: Caregiver })[],
-    readyPack,
-    thawingPack,
     taskInstructions: (instructionsRes.data ?? []) as Instruction[],
   };
 }
@@ -207,14 +54,8 @@ export default function Home() {
   const [todayVisits, setTodayVisits] = useState<
     (Visit & { caregivers: Caregiver })[]
   >([]);
-  const [readyPack, setReadyPack] =
-    useState<FoodPackWithCaregiver | null>(null);
-  const [thawingPack, setThawingPack] =
-    useState<FoodPackWithCaregiver | null>(null);
   const [celebratingTask, setCelebratingTask] = useState<string | null>(null);
   const [savingTasks, setSavingTasks] = useState<Set<string>>(new Set());
-  const [savingFood, setSavingFood] = useState(false);
-  const [justSavedFood, setJustSavedFood] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -229,8 +70,6 @@ export default function Home() {
         setTasks(data.tasks);
         setCompletions(data.completions);
         setTodayVisits(data.visits);
-        setReadyPack(data.readyPack);
-        setThawingPack(data.thawingPack);
         setTaskInstructions(data.taskInstructions);
       })
       .catch(() => {
@@ -244,19 +83,13 @@ export default function Home() {
     };
   }, [refreshKey]);
 
-  // Refresh food status every minute
+  // Refresh every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setRefreshKey((k) => k + 1);
     }, 60_000);
     return () => clearInterval(interval);
   }, []);
-
-  const refresh = () => {
-    setLoading(true);
-    setError(false);
-    setRefreshKey((k) => k + 1);
-  };
 
   // Silent refresh: re-fetch data without showing full loading screen
   const silentRefresh = () => {
@@ -376,85 +209,6 @@ export default function Home() {
     }
   };
 
-  const handleStartThawing = async () => {
-    if (!caregiver || savingFood) return;
-    setSavingFood(true);
-
-    try {
-      // Auto check-in
-      await ensureCheckedIn(caregiver);
-
-      const supabase = getSupabase();
-
-      // If there's an existing ready pack, mark it as replaced first
-      if (readyPack) {
-        const { error: replaceError } = await supabase
-          .from("food_packs")
-          .update({
-            status: "replaced",
-            replaced_by: caregiver.id,
-            replaced_at: new Date().toISOString(),
-          })
-          .eq("id", readyPack.id);
-        if (replaceError) throw replaceError;
-      }
-
-      const now = Date.now();
-      const thawDurationMs = 12 * 60 * 60 * 1000; // 12 hours
-      const expiryDurationMs = 66 * 60 * 60 * 1000; // 66 hours after thaw
-
-      // Create thawing pack — expires_at starts counting AFTER thaw completes
-      const { error: insertError } = await supabase
-        .from("food_packs")
-        .insert({
-          placed_by: caregiver.id,
-          label: "חבילת אוכל טבעי",
-          status: "thawing",
-          thaw_until: new Date(now + thawDurationMs).toISOString(),
-          expires_at: new Date(
-            now + thawDurationMs + expiryDurationMs
-          ).toISOString(),
-        });
-      if (insertError) throw insertError;
-
-      setJustSavedFood(true);
-      setTimeout(() => setJustSavedFood(false), 2000);
-      refresh();
-    } catch (err) {
-      console.error("Failed to start thawing pack:", err);
-      alert("משהו השתבש ברישום החבילה החדשה. נסו שוב.");
-    } finally {
-      setSavingFood(false);
-    }
-  };
-
-  const handleDiscardExpired = async () => {
-    if (!caregiver || savingFood || !readyPack) return;
-    setSavingFood(true);
-
-    try {
-      // Auto check-in
-      await ensureCheckedIn(caregiver);
-
-      const { error: updateError } = await getSupabase()
-        .from("food_packs")
-        .update({
-          status: "replaced",
-          replaced_by: caregiver.id,
-          replaced_at: new Date().toISOString(),
-        })
-        .eq("id", readyPack.id);
-      if (updateError) throw updateError;
-
-      refresh();
-    } catch (err) {
-      console.error("Failed to discard expired pack:", err);
-      alert("משהו השתבש בעדכון. נסו שוב.");
-    } finally {
-      setSavingFood(false);
-    }
-  };
-
   const isCompletedByMe = (taskId: string) =>
     completions.some(
       (c) => c.task_id === taskId && c.caregiver_id === caregiver?.id
@@ -485,9 +239,6 @@ export default function Home() {
   const totalTasks = tasks.length;
   const progressPercent =
     totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
-
-  const foodStatus = readyPack ? getFoodStatus(readyPack) : null;
-  const thawStatus = thawingPack ? getThawStatus(thawingPack) : null;
 
   return (
     <div className="min-h-full paw-bg">
@@ -702,137 +453,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Food Pack Status */}
-            <div className="bg-white rounded-2xl p-4 card-shadow fade-in space-y-3">
-              <h2 className="text-sm font-semibold text-gray-500">
-                🍖 מצב חבילת אוכל
-              </h2>
-
-              {/* Ready pack */}
-              {readyPack && foodStatus ? (
-                <div
-                  className={`rounded-xl p-4 border-2 ${foodStatus.bgColor} ${foodStatus.borderColor}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-3xl ${foodStatus.status === "expired" || foodStatus.status === "old" ? "pulse-soft" : ""}`}
-                    >
-                      {foodStatus.emoji}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-bold ${foodStatus.color}`}>
-                          {foodStatus.label}
-                        </span>
-                        <span className={`text-xs ${foodStatus.color} opacity-75`}>
-                          {foodStatus.hoursLeft > 0
-                            ? formatHoursLeft(foodStatus.hoursLeft)
-                            : "פג תוקף!"}
-                        </span>
-                      </div>
-                      <p className={`text-xs mt-0.5 ${foodStatus.color} opacity-75`}>
-                        {foodStatus.message}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  {foodStatus.status !== "expired" && (
-                    <div className="mt-3">
-                      <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            foodStatus.status === "fresh"
-                              ? "bg-green-400"
-                              : foodStatus.status === "ok"
-                                ? "bg-yellow-400"
-                                : "bg-orange-400"
-                          }`}
-                          style={{
-                            width: `${Math.max(0, Math.min(100, (foodStatus.hoursLeft / 66) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Expired: discard button */}
-                  {foodStatus.status === "expired" && caregiver && (
-                    <button
-                      onClick={handleDiscardExpired}
-                      disabled={savingFood}
-                      className="w-full mt-3 py-2.5 rounded-2xl font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-colors duration-200 card-shadow active:scale-[0.98]"
-                    >
-                      🗑️ השלכתי את החבילה
-                    </button>
-                  )}
-
-                  {/* Old + no thawing pack: defrost reminder */}
-                  {foodStatus.status === "old" && !thawingPack && (
-                    <div className="mt-3 rounded-lg p-2.5 bg-yellow-100 border border-yellow-300">
-                      <p className="text-xs font-medium text-yellow-800 text-center">
-                        ⏰ נא להוציא חבילה חדשה להפשרה במקרר
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-xl p-4 bg-gray-50 text-center">
-                  <p className="text-2xl mb-1">🧊</p>
-                  <p className="text-gray-500 text-sm">אין חבילת אוכל פעילה</p>
-                </div>
-              )}
-
-              {/* Thawing pack */}
-              {thawingPack && thawStatus && (
-                <div
-                  className={`rounded-xl p-4 border-2 ${
-                    thawStatus.isReady
-                      ? "bg-green-50 border-green-200"
-                      : "bg-blue-50 border-blue-200"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">
-                      {thawStatus.isReady ? "✅" : "🧊"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <span
-                        className={`text-sm font-bold ${thawStatus.isReady ? "text-green-600" : "text-blue-600"}`}
-                      >
-                        {thawStatus.isReady
-                          ? "ההפשרה הושלמה — מוכנה לשימוש"
-                          : "חבילה בהפשרה"}
-                      </span>
-                      {!thawStatus.isReady && (
-                        <p className="text-xs mt-0.5 text-blue-600 opacity-75">
-                          {thawStatus.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Start thawing button — only when no thawing pack exists */}
-              {caregiver && !thawingPack && (
-                <button
-                  onClick={handleStartThawing}
-                  disabled={savingFood}
-                  className={`w-full py-3 rounded-2xl font-semibold text-sm transition-all duration-300 card-shadow ${
-                    justSavedFood
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gradient-to-l from-pink-400 to-pink-500 text-white hover:from-pink-500 hover:to-pink-600 active:scale-[0.98]"
-                  }`}
-                >
-                  {justSavedFood
-                    ? "✅ חבילה חדשה נרשמה!"
-                    : "🧊 הוצאתי חבילה להפשרה"}
-                </button>
-              )}
-            </div>
-
-            {/* Divider between food & schedule */}
+            {/* Divider */}
             <div className="flex items-center gap-3 my-6" aria-hidden="true">
               <div className="flex-1 h-px bg-gradient-to-l from-pink-200 to-transparent"></div>
               <span className="text-2xl">🐾</span>

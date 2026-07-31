@@ -161,21 +161,6 @@ button:focus-visible, a:focus-visible, [role="checkbox"]:focus-visible, [role="o
   animation: sparkle 0.6s ease-in-out;
 }
 
-/* Pulse for food alerts */
-@keyframes pulse-soft {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.pulse-soft {
-  animation: pulse-soft 2s ease-in-out infinite;
-}
-
 /* Cat walking animation for saving indicator */
 @keyframes catWalk {
   0%, 100% { transform: translateX(0); }

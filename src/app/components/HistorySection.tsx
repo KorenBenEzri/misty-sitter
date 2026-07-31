@@ -20,31 +20,16 @@ interface HistoryCompletion {
   tasks: { name: string; icon: string };
 }
 
-interface HistoryFoodPack {
-  id: string;
-  defrosted_at: string;
-  status: string;
-  placed_by_caregiver: Caregiver | null;
-}
-
 interface DayGroup {
   dateKey: string;
   label: string;
   visits: HistoryVisit[];
   completions: HistoryCompletion[];
-  foodPacks: HistoryFoodPack[];
 }
 
 /* ---------- Helpers ---------- */
 
 const DAYS_PER_PAGE = 14;
-
-const foodStatusHebrew: Record<string, string> = {
-  thawing: "בהפשרה במקרר",
-  ready: "מוכן",
-  expired: "פג תוקף",
-  replaced: "הוחלף",
-};
 
 function formatHebrewDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -74,7 +59,7 @@ async function loadHistory(daysCount: number) {
   const fromISO = from.toISOString();
   const todayISO = today.toISOString();
 
-  const [visitsRes, completionsRes, foodRes] = await Promise.all([
+  const [visitsRes, completionsRes] = await Promise.all([
     supabase
       .from("visits")
       .select("id, checked_in_at, caregivers(*)")
@@ -87,46 +72,11 @@ async function loadHistory(daysCount: number) {
       .gte("completed_at", fromISO)
       .lt("completed_at", todayISO)
       .order("completed_at", { ascending: false }),
-    supabase
-      .from("food_packs")
-      .select("id, defrosted_at, status, placed_by")
-      .gte("defrosted_at", fromISO)
-      .lt("defrosted_at", todayISO)
-      .order("defrosted_at", { ascending: false }),
   ]);
 
   const visits = (visitsRes.data ?? []) as unknown as HistoryVisit[];
   const completions =
     (completionsRes.data ?? []) as unknown as HistoryCompletion[];
-  const rawPacks = (foodRes.data ?? []) as {
-    id: string;
-    defrosted_at: string;
-    status: string;
-    placed_by: string | null;
-  }[];
-
-  // Resolve caregiver names for food packs
-  const caregiverIds = [
-    ...new Set(rawPacks.map((p) => p.placed_by).filter(Boolean)),
-  ] as string[];
-
-  let caregiverMap: Record<string, Caregiver> = {};
-  if (caregiverIds.length > 0) {
-    const { data: cgs } = await supabase
-      .from("caregivers")
-      .select("*")
-      .in("id", caregiverIds);
-    if (cgs) {
-      caregiverMap = Object.fromEntries(cgs.map((c: Caregiver) => [c.id, c]));
-    }
-  }
-
-  const foodPacks: HistoryFoodPack[] = rawPacks.map((p) => ({
-    id: p.id,
-    defrosted_at: p.defrosted_at,
-    status: p.status,
-    placed_by_caregiver: p.placed_by ? caregiverMap[p.placed_by] ?? null : null,
-  }));
 
   // Group by date
   const groups: Record<string, DayGroup> = {};
@@ -139,7 +89,6 @@ async function loadHistory(daysCount: number) {
         label: formatHebrewDate(v.checked_in_at),
         visits: [],
         completions: [],
-        foodPacks: [],
       };
     }
     groups[dk].visits.push(v);
@@ -153,24 +102,9 @@ async function loadHistory(daysCount: number) {
         label: formatHebrewDate(c.completed_at),
         visits: [],
         completions: [],
-        foodPacks: [],
       };
     }
     groups[dk].completions.push(c);
-  }
-
-  for (const fp of foodPacks) {
-    const dk = dateKey(fp.defrosted_at);
-    if (!groups[dk]) {
-      groups[dk] = {
-        dateKey: dk,
-        label: formatHebrewDate(fp.defrosted_at),
-        visits: [],
-        completions: [],
-        foodPacks: [],
-      };
-    }
-    groups[dk].foodPacks.push(fp);
   }
 
   // Sort by date descending
@@ -294,23 +228,6 @@ export default function HistorySection() {
                     <span className="text-gray-400">
                       {c.tasks.icon} {c.tasks.name}{" "}
                       {formatTime(c.completed_at)}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Food packs */}
-                {day.foodPacks.map((fp) => (
-                  <div
-                    key={fp.id}
-                    className="flex items-center gap-1.5 text-xs text-gray-500"
-                  >
-                    <span>🧊</span>
-                    <span className="text-gray-400">
-                      חבילה הופשרה
-                      {fp.placed_by_caregiver
-                        ? ` ע״י ${fp.placed_by_caregiver.name}`
-                        : ""}{" "}
-                      — {foodStatusHebrew[fp.status] ?? fp.status}
                     </span>
                   </div>
                 ))}
