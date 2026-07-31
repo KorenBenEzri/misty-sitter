@@ -41,12 +41,12 @@ function getFoodStatus(pack: FoodPack): {
       color: "text-red-600",
       bgColor: "bg-red-50",
       borderColor: "border-red-200",
-      message: "אל תשתמשו! החליפו מיד!",
+      message: "החבילה פגה! יש להשליך",
       hoursLeft: 0,
     };
   }
-  // Less than 36h left → Getting old
-  if (hoursLeft < 36) {
+  // Less than 18h left → Getting old (safety margin over 12h thaw time)
+  if (hoursLeft < 18) {
     return {
       status: "old",
       label: "מתיישן",
@@ -54,12 +54,12 @@ function getFoodStatus(pack: FoodPack): {
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       borderColor: "border-orange-200",
-      message: "הכינו חבילה חדשה!",
+      message: "נא להוציא חבילה חדשה להפשרה במקרר",
       hoursLeft,
     };
   }
-  // Less than 60h left → OK
-  if (hoursLeft < 60) {
+  // Less than 44h left → OK
+  if (hoursLeft < 44) {
     return {
       status: "ok",
       label: "בסדר",
@@ -71,7 +71,7 @@ function getFoodStatus(pack: FoodPack): {
       hoursLeft,
     };
   }
-  // 60+ hours left → Fresh
+  // 44+ hours left → Fresh
   return {
     status: "fresh",
     label: "טרי",
@@ -81,6 +81,25 @@ function getFoodStatus(pack: FoodPack): {
     borderColor: "border-green-200",
     message: "טרי ומוכן!",
     hoursLeft,
+  };
+}
+
+function getThawStatus(pack: FoodPack): {
+  isReady: boolean;
+  hoursLeft: number;
+  message: string;
+} {
+  if (!pack.thaw_until)
+    return { isReady: true, hoursLeft: 0, message: "מוכן" };
+  const thawEnd = new Date(pack.thaw_until).getTime();
+  const now = Date.now();
+  const hoursLeft = Math.max(0, (thawEnd - now) / (1000 * 60 * 60));
+  if (hoursLeft <= 0)
+    return { isReady: true, hoursLeft: 0, message: "מוכנה לשימוש!" };
+  return {
+    isReady: false,
+    hoursLeft,
+    message: `עוד ${formatHoursLeft(hoursLeft)} להפשרה`,
   };
 }
 
@@ -115,17 +134,17 @@ async function loadDashboard() {
       .order("checked_in_at", { ascending: false }),
   ]);
 
-  // Load current food pack
-  const { data: activePacks } = await supabase
+  // Load active food packs (ready + thawing)
+  const { data: foodData } = await supabase
     .from("food_packs")
     .select("*")
-    .in("status", ["defrosting", "ready"])
-    .order("defrosted_at", { ascending: false })
-    .limit(1);
+    .in("status", ["thawing", "ready"])
+    .order("defrosted_at", { ascending: false });
 
-  let currentPack: FoodPackWithCaregiver | null = null;
-  if (activePacks && activePacks.length > 0) {
-    const pack = activePacks[0];
+  // Resolve caregiver for each pack
+  async function resolvePack(
+    pack: FoodPack
+  ): Promise<FoodPackWithCaregiver> {
     let placedByCaregiver: Caregiver | null = null;
     if (pack.placed_by) {
       const { data } = await supabase
@@ -135,17 +154,40 @@ async function loadDashboard() {
         .single();
       placedByCaregiver = data;
     }
-    currentPack = {
-      ...pack,
-      placed_by_caregiver: placedByCaregiver,
-    } as FoodPackWithCaregiver;
+    return { ...pack, placed_by_caregiver: placedByCaregiver };
   }
+
+  const packs = (foodData ?? []) as FoodPack[];
+
+  // Auto-transition: if a thawing pack's thaw_until has passed, mark it ready
+  for (const pack of packs) {
+    if (
+      pack.status === "thawing" &&
+      pack.thaw_until &&
+      new Date(pack.thaw_until) <= new Date()
+    ) {
+      await supabase
+        .from("food_packs")
+        .update({ status: "ready" })
+        .eq("id", pack.id);
+      pack.status = "ready";
+    }
+  }
+
+  const readyPackRaw = packs.find((p) => p.status === "ready") ?? null;
+  const thawingPackRaw = packs.find((p) => p.status === "thawing") ?? null;
+
+  const readyPack = readyPackRaw ? await resolvePack(readyPackRaw) : null;
+  const thawingPack = thawingPackRaw
+    ? await resolvePack(thawingPackRaw)
+    : null;
 
   return {
     tasks: (tasksRes.data ?? []) as Task[],
     completions: (completionsRes.data ?? []) as CompletionWithCaregiver[],
     visits: (visitsRes.data ?? []) as (Visit & { caregivers: Caregiver })[],
-    currentPack,
+    readyPack,
+    thawingPack,
   };
 }
 
@@ -156,12 +198,14 @@ export default function Home() {
   const [todayVisits, setTodayVisits] = useState<
     (Visit & { caregivers: Caregiver })[]
   >([]);
-  const [currentPack, setCurrentPack] =
+  const [readyPack, setReadyPack] =
+    useState<FoodPackWithCaregiver | null>(null);
+  const [thawingPack, setThawingPack] =
     useState<FoodPackWithCaregiver | null>(null);
   const [celebratingTask, setCelebratingTask] = useState<string | null>(null);
   const [savingTasks, setSavingTasks] = useState<Set<string>>(new Set());
-  const [defrosting, setDefrosting] = useState(false);
-  const [justDefrosted, setJustDefrosted] = useState(false);
+  const [savingFood, setSavingFood] = useState(false);
+  const [justSavedFood, setJustSavedFood] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -174,7 +218,8 @@ export default function Home() {
         setTasks(data.tasks);
         setCompletions(data.completions);
         setTodayVisits(data.visits);
-        setCurrentPack(data.currentPack);
+        setReadyPack(data.readyPack);
+        setThawingPack(data.thawingPack);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -319,44 +364,67 @@ export default function Home() {
     }
   };
 
-  const handleDefrost = async () => {
-    if (!caregiver || defrosting) return;
-    setDefrosting(true);
+  const handleStartThawing = async () => {
+    if (!caregiver || savingFood) return;
+    setSavingFood(true);
 
     try {
       // Auto check-in
       await ensureCheckedIn(caregiver);
 
-      // Mark current pack as replaced
-      if (currentPack) {
-        const { error: updateError } = await getSupabase()
-          .from("food_packs")
-          .update({
-            status: "replaced",
-            replaced_by: caregiver.id,
-            replaced_at: new Date().toISOString(),
-          })
-          .eq("id", currentPack.id);
-        if (updateError) throw updateError;
-      }
+      const now = Date.now();
+      const thawDurationMs = 12 * 60 * 60 * 1000; // 12 hours
+      const expiryDurationMs = 66 * 60 * 60 * 1000; // 66 hours after thaw
 
-      // Create new pack
+      // Create thawing pack — expires_at starts counting AFTER thaw completes
       const { error: insertError } = await getSupabase()
         .from("food_packs")
         .insert({
           placed_by: caregiver.id,
           label: "חבילת אוכל טבעי",
+          status: "thawing",
+          thaw_until: new Date(now + thawDurationMs).toISOString(),
+          expires_at: new Date(
+            now + thawDurationMs + expiryDurationMs
+          ).toISOString(),
         });
       if (insertError) throw insertError;
 
-      setJustDefrosted(true);
-      setTimeout(() => setJustDefrosted(false), 2000);
+      setJustSavedFood(true);
+      setTimeout(() => setJustSavedFood(false), 2000);
       refresh();
     } catch (err) {
-      console.error("Failed to defrost new pack:", err);
+      console.error("Failed to start thawing pack:", err);
       alert("משהו השתבש ברישום החבילה החדשה. נסו שוב.");
     } finally {
-      setDefrosting(false);
+      setSavingFood(false);
+    }
+  };
+
+  const handleDiscardExpired = async () => {
+    if (!caregiver || savingFood || !readyPack) return;
+    setSavingFood(true);
+
+    try {
+      // Auto check-in
+      await ensureCheckedIn(caregiver);
+
+      const { error: updateError } = await getSupabase()
+        .from("food_packs")
+        .update({
+          status: "replaced",
+          replaced_by: caregiver.id,
+          replaced_at: new Date().toISOString(),
+        })
+        .eq("id", readyPack.id);
+      if (updateError) throw updateError;
+
+      refresh();
+    } catch (err) {
+      console.error("Failed to discard expired pack:", err);
+      alert("משהו השתבש בעדכון. נסו שוב.");
+    } finally {
+      setSavingFood(false);
     }
   };
 
@@ -376,7 +444,8 @@ export default function Home() {
   const progressPercent =
     totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
-  const foodStatus = currentPack ? getFoodStatus(currentPack) : null;
+  const foodStatus = readyPack ? getFoodStatus(readyPack) : null;
+  const thawStatus = thawingPack ? getThawStatus(thawingPack) : null;
 
   return (
     <div className="min-h-full paw-bg">
@@ -545,7 +614,8 @@ export default function Home() {
                 🍖 מצב חבילת אוכל
               </h2>
 
-              {currentPack && foodStatus ? (
+              {/* Ready pack */}
+              {readyPack && foodStatus ? (
                 <div
                   className={`rounded-xl p-4 border-2 ${foodStatus.bgColor} ${foodStatus.borderColor}`}
                 >
@@ -585,10 +655,30 @@ export default function Home() {
                                 : "bg-orange-400"
                           }`}
                           style={{
-                            width: `${Math.max(0, Math.min(100, (foodStatus.hoursLeft / 84) * 100))}%`,
+                            width: `${Math.max(0, Math.min(100, (foodStatus.hoursLeft / 66) * 100))}%`,
                           }}
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Expired: discard button */}
+                  {foodStatus.status === "expired" && caregiver && (
+                    <button
+                      onClick={handleDiscardExpired}
+                      disabled={savingFood}
+                      className="w-full mt-3 py-2.5 rounded-2xl font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-colors duration-200 card-shadow active:scale-[0.98]"
+                    >
+                      🗑️ השלכתי את החבילה
+                    </button>
+                  )}
+
+                  {/* Old + no thawing pack: defrost reminder */}
+                  {foodStatus.status === "old" && !thawingPack && (
+                    <div className="mt-3 rounded-lg p-2.5 bg-yellow-100 border border-yellow-300">
+                      <p className="text-xs font-medium text-yellow-800 text-center">
+                        ⏰ נא להוציא חבילה חדשה להפשרה במקרר
+                      </p>
                     </div>
                   )}
                 </div>
@@ -599,20 +689,51 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Defrost button */}
-              {caregiver && (
+              {/* Thawing pack */}
+              {thawingPack && thawStatus && (
+                <div
+                  className={`rounded-xl p-4 border-2 ${
+                    thawStatus.isReady
+                      ? "bg-green-50 border-green-200"
+                      : "bg-blue-50 border-blue-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">
+                      {thawStatus.isReady ? "✅" : "🧊"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className={`text-sm font-bold ${thawStatus.isReady ? "text-green-600" : "text-blue-600"}`}
+                      >
+                        {thawStatus.isReady
+                          ? "ההפשרה הושלמה — מוכנה לשימוש"
+                          : "חבילה בהפשרה"}
+                      </span>
+                      {!thawStatus.isReady && (
+                        <p className="text-xs mt-0.5 text-blue-600 opacity-75">
+                          {thawStatus.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Start thawing button — only when no thawing pack exists */}
+              {caregiver && !thawingPack && (
                 <button
-                  onClick={handleDefrost}
-                  disabled={defrosting}
+                  onClick={handleStartThawing}
+                  disabled={savingFood}
                   className={`w-full py-3 rounded-2xl font-semibold text-sm transition-all duration-300 card-shadow ${
-                    justDefrosted
+                    justSavedFood
                       ? "bg-green-100 text-green-700"
                       : "bg-gradient-to-l from-pink-400 to-pink-500 text-white hover:from-pink-500 hover:to-pink-600 active:scale-[0.98]"
                   }`}
                 >
-                  {justDefrosted
+                  {justSavedFood
                     ? "✅ חבילה חדשה נרשמה!"
-                    : "🧊 הוצאתי חבילה חדשה מהמקפיא"}
+                    : "🧊 הוצאתי חבילה להפשרה"}
                 </button>
               )}
             </div>

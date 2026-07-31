@@ -33,7 +33,8 @@ export interface FoodPack {
   placed_by: string | null;
   replaced_by: string | null;
   replaced_at: string | null;
-  status: "defrosting" | "ready" | "expired" | "replaced";
+  status: "defrosting" | "thawing" | "ready" | "expired" | "replaced";
+  thaw_until: string | null;
   notes: string | null;
   created_at: string;
   placed_by_caregiver?: Caregiver | null;
