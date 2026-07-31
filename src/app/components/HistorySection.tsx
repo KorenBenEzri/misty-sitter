@@ -40,7 +40,6 @@ interface DayGroup {
 const DAYS_PER_PAGE = 14;
 
 const foodStatusHebrew: Record<string, string> = {
-  defrosting: "בהפשרה",
   thawing: "בהפשרה במקרר",
   ready: "מוכן",
   expired: "פג תוקף",

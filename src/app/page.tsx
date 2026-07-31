@@ -93,13 +93,13 @@ function getThawStatus(pack: FoodPack): {
     return { isReady: true, hoursLeft: 0, message: "מוכן" };
   const thawEnd = new Date(pack.thaw_until).getTime();
   const now = Date.now();
-  const hoursLeft = Math.max(0, (thawEnd - now) / (1000 * 60 * 60));
-  if (hoursLeft <= 0)
+  const rawHoursLeft = (thawEnd - now) / (1000 * 60 * 60);
+  if (rawHoursLeft <= 0)
     return { isReady: true, hoursLeft: 0, message: "מוכנה לשימוש!" };
   return {
     isReady: false,
-    hoursLeft,
-    message: `עוד ${formatHoursLeft(hoursLeft)} להפשרה`,
+    hoursLeft: rawHoursLeft,
+    message: `עוד ${formatHoursLeft(rawHoursLeft)} להפשרה`,
   };
 }
 
@@ -157,22 +157,26 @@ async function loadDashboard() {
     return { ...pack, placed_by_caregiver: placedByCaregiver };
   }
 
-  const packs = (foodData ?? []) as FoodPack[];
+  const rawPacks = (foodData ?? []) as FoodPack[];
 
   // Auto-transition: if a thawing pack's thaw_until has passed, mark it ready
-  for (const pack of packs) {
-    if (
-      pack.status === "thawing" &&
-      pack.thaw_until &&
-      new Date(pack.thaw_until) <= new Date()
-    ) {
-      await supabase
-        .from("food_packs")
-        .update({ status: "ready" })
-        .eq("id", pack.id);
-      pack.status = "ready";
-    }
-  }
+  // Create a new array to avoid mutating the original Supabase response objects.
+  const packs = await Promise.all(
+    rawPacks.map(async (pack) => {
+      if (
+        pack.status === "thawing" &&
+        pack.thaw_until &&
+        new Date(pack.thaw_until) <= new Date()
+      ) {
+        await supabase
+          .from("food_packs")
+          .update({ status: "ready" })
+          .eq("id", pack.id);
+        return { ...pack, status: "ready" as const };
+      }
+      return pack;
+    })
+  );
 
   const readyPackRaw = packs.find((p) => p.status === "ready") ?? null;
   const thawingPackRaw = packs.find((p) => p.status === "thawing") ?? null;
@@ -372,12 +376,27 @@ export default function Home() {
       // Auto check-in
       await ensureCheckedIn(caregiver);
 
+      const supabase = getSupabase();
+
+      // If there's an existing ready pack, mark it as replaced first
+      if (readyPack) {
+        const { error: replaceError } = await supabase
+          .from("food_packs")
+          .update({
+            status: "replaced",
+            replaced_by: caregiver.id,
+            replaced_at: new Date().toISOString(),
+          })
+          .eq("id", readyPack.id);
+        if (replaceError) throw replaceError;
+      }
+
       const now = Date.now();
       const thawDurationMs = 12 * 60 * 60 * 1000; // 12 hours
       const expiryDurationMs = 66 * 60 * 60 * 1000; // 66 hours after thaw
 
       // Create thawing pack — expires_at starts counting AFTER thaw completes
-      const { error: insertError } = await getSupabase()
+      const { error: insertError } = await supabase
         .from("food_packs")
         .insert({
           placed_by: caregiver.id,
