@@ -5,13 +5,33 @@ import { getSupabase, getStorageUrl } from "@/lib/supabase";
 import Link from "next/link";
 import type { Instruction } from "@/lib/types";
 
+const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 function sanitizeFilename(title: string): string {
-  return title
+  const sanitized = title
     .trim()
     .replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60);
+  return sanitized || "video";
+}
+
+function getFileExtension(file: File): string {
+  const nameExt = file.name.includes(".")
+    ? file.name.slice(file.name.lastIndexOf("."))
+    : "";
+  if (nameExt) return nameExt.toLowerCase();
+
+  const mimeExts: Record<string, string> = {
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "video/x-msvideo": ".avi",
+    "video/x-matroska": ".mkv",
+  };
+  return mimeExts[file.type] || ".mp4";
 }
 
 export default function UploadPage() {
@@ -68,17 +88,22 @@ export default function UploadPage() {
       setError("נא לבחור קובץ וידאו");
       return;
     }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setError(`הקובץ גדול מדי (${(file.size / (1024 * 1024)).toFixed(1)} MB). הגודל המרבי הוא ${MAX_FILE_SIZE_MB} MB`);
+      return;
+    }
 
     setUploading(true);
-    setProgress(10);
+    setProgress(1);
 
     try {
       const supabase = getSupabase();
       const sanitized = sanitizeFilename(title);
-      const filename = `${Date.now()}-${sanitized}.mp4`;
+      const ext = getFileExtension(file);
+      const filename = `${Date.now()}-${sanitized}${ext}`;
 
       // Upload to Supabase Storage
-      setProgress(20);
+      setProgress(2);
       const { error: uploadError } = await supabase.storage
         .from("instruction-videos")
         .upload(filename, file);
@@ -87,7 +112,7 @@ export default function UploadPage() {
         throw new Error(`שגיאה בהעלאה: ${uploadError.message}`);
       }
 
-      setProgress(70);
+      setProgress(3);
 
       // Get public URL
       const { data: urlData } = supabase.storage
@@ -107,10 +132,14 @@ export default function UploadPage() {
         });
 
       if (insertError) {
+        // Clean up the uploaded file since the DB insert failed
+        await supabase.storage
+          .from("instruction-videos")
+          .remove([filename]);
         throw new Error(`שגיאה בשמירת הנתונים: ${insertError.message}`);
       }
 
-      setProgress(100);
+      setProgress(4);
       setSuccessUrl(publicUrl);
     } catch (err) {
       const message =
@@ -231,13 +260,16 @@ export default function UploadPage() {
                 <div className="w-full bg-pink-100 rounded-full h-3 overflow-hidden">
                   <div
                     className="bg-gradient-to-l from-pink-400 to-lavender-300 h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${(progress / 4) * 100}%` }}
                   />
                 </div>
                 <p className="text-center text-sm text-gray-400">
-                  {progress < 70 ? "מעלה..." : progress < 100 ? "שומר..." : "הושלם!"}
+                  {progress <= 1 && "מתחיל..."}
+                  {progress === 2 && "מעלה קובץ..."}
+                  {progress === 3 && "שומר נתונים..."}
+                  {progress >= 4 && "הושלם!"}
                   {" "}
-                  ({progress}%)
+                  (שלב {progress}/4)
                 </p>
               </div>
             )}
