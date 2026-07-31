@@ -5,8 +5,7 @@ import { getSupabase, getStorageUrl } from "@/lib/supabase";
 import Link from "next/link";
 import type { Instruction } from "@/lib/types";
 
-const MAX_FILE_SIZE_MB = 100;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+// No file size limit
 
 function sanitizeFilename(title: string): string {
   const sanitized = title
@@ -86,10 +85,6 @@ export default function UploadPage() {
     }
     if (!file) {
       setError("נא לבחור קובץ וידאו");
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      setError(`הקובץ גדול מדי (${(file.size / (1024 * 1024)).toFixed(1)} MB). הגודל המרבי הוא ${MAX_FILE_SIZE_MB} MB`);
       return;
     }
 
